@@ -20,7 +20,7 @@ Example output: `assets/2.aff`
 
 ## LICENSE
 
-Assets: `CC-BY-NC` [Arcaea-Infinity/OpenArcaeaArts](https://github.com/Arcaea-Infinity/FanmadeCharts)
+Assets: `CC-BY-NC` [Arcaea-Infinity/OpenArcaeaArts](https://github.com/Arcaea-Infinity/OpenArcaeaArts)
 
 Aff & cover `616 SB License` InariAimu from [Arcaea-Infinity/FanmadeCharts](https://github.com/Arcaea-Infinity/FanmadeCharts)
 
