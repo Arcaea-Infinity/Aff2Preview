@@ -1,6 +1,6 @@
 # Aff2Preview
 
-Generate 2D chart preview image by aff file.
+Generate 2D chart preview image by aff file. Use `System.Drawing.Common` to draw image ~which made this only available on Windows~.
 
 Usage:
 
