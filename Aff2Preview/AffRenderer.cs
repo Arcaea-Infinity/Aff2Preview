@@ -10,7 +10,7 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
 {
     internal class AffRenderer
     {
-        readonly AffReader affReader = new();
+        readonly AffReader.ArcaeaAffReader affReader = new();
 
         private const int note_height = 64;
         private const int sky_note_height = 61;
@@ -41,7 +41,7 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
 
         private async Task LoadAff(string aff_path, int side)
         {
-            affReader.ParseFile(aff_path);
+            affReader.Parse(aff_path);
 
             var global_group = affReader.Events[0] as ArcaeaAffTiming;
             if (global_group is not null)

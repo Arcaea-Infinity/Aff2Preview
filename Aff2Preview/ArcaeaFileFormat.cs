@@ -34,31 +34,116 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
 
     public class ArcaeaAffFormatException : Exception
     {
-        public string Reason;
+        public string? Reason;
 
-        public ArcaeaAffFormatException(string reason)
-            : base(reason)
+        public ArcaeaAffFormatException(string? reason) : base(reason)
         {
             Reason = reason;
         }
 
         public ArcaeaAffFormatException(string content, int line)
-               : base(string.Format("", line, content))
         {
-
+            Console.WriteLine($"在第 {line} 行发生读取错误。\n{content}");
         }
 
         public ArcaeaAffFormatException(EventType type, string content, int line)
-            : base(string.Format("", line, type, content))
         {
-
+            Console.WriteLine($"在第 {line} 行处的 {type} 型事件中发生读取错误。\n{content}");
         }
 
-        public ArcaeaAffFormatException(EventType type, string content, int line, string reason)
-            : base(string.Format("", line, type, content, reason))
+        public ArcaeaAffFormatException(EventType type, string content, int line, string? reason)
         {
-
+            Console.WriteLine($"在第 {line} 行处的 {type} 型事件中发生读取错误。\n{content}\n{reason}");
         }
+    }
+    
+    public class ArcaeaAffEvent
+    {
+        public int Timing;
+
+        public EventType Type;
+
+        public int TimingGroup;
+    }
+
+    public class ArcaeaAffArc : ArcaeaAffEvent
+    {
+        public int EndTiming;
+
+        public float XStart;
+
+        public float XEnd;
+
+        public string LineType = null!;
+
+        public float YStart;
+
+        public float YEnd;
+
+        public int Color;
+
+        public bool IsVoid;
+
+        public List<int>? ArcTaps;
+
+        public bool NoInput;
+        
+        public static ArcLineType ToArcLineType(string type)
+        {
+            return type switch
+            {
+                "b" => ArcLineType.B,
+                "s" => ArcLineType.S,
+                "si" => ArcLineType.Si,
+                "so" => ArcLineType.So,
+                "sisi" => ArcLineType.SiSi,
+                "siso" => ArcLineType.SiSo,
+                "sosi" => ArcLineType.SoSi,
+                "soso" => ArcLineType.SoSo,
+                _ => ArcLineType.S
+            };
+        }
+    }
+
+    public class ArcaeaAffCamera : ArcaeaAffEvent
+    {
+        public Vector3 Move;
+
+        public Vector3 Rotate;
+
+        public string CameraType = null!;
+
+        public int Duration;
+    }
+
+    public class ArcaeaAffHold : ArcaeaAffEvent
+    {
+        public int EndTiming;
+
+        public int Track;
+
+        public bool NoInput;
+    }
+
+    public class ArcaeaAffSceneControl : ArcaeaAffEvent
+    {
+        public string SceneControlTypeName = null!;
+
+        public List<object> Parameters = null!;
+    }
+
+    public class ArcaeaAffTap : ArcaeaAffEvent
+    {
+        public int Track;
+
+        public bool NoInput;
+    }
+
+    public class ArcaeaAffTiming : ArcaeaAffEvent
+    {
+        public float Bpm;
+
+        public float BeatsPerLine;
     }
 
     public enum EventType
@@ -69,72 +154,13 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
         Arc,
         Camera,
         Unknown,
-        Special,
-        //v3.0.0
+        SceneControl,
         TimingGroup,
         TimingGroupEnd
     }
 
-    public class ArcaeaAffEvent
+    public class TimingGroupProperties
     {
-        public int Timing;
-        public EventType Type;
-
-        //v3.0.0
-        public int TimingGroup;
+        public bool NoInput;
     }
-
-    public class ArcaeaAffTiming : ArcaeaAffEvent
-    {
-        public float Bpm;
-        public float BeatsPerLine;
-    }
-
-    public class ArcaeaAffTap : ArcaeaAffEvent
-    {
-        public int Track;
-    }
-
-    public class ArcaeaAffHold : ArcaeaAffEvent
-    {
-        public int EndTiming;
-        public int Track;
-    }
-
-    public class ArcaeaAffArc : ArcaeaAffEvent
-    {
-        public int EndTiming;
-        public float XStart;
-        public float XEnd;
-        public string LineType;
-        public float YStart;
-        public float YEnd;
-        public int Color;
-        public bool IsVoid;
-        public List<int>? ArcTaps;
-
-        public static ArcLineType ToArcLineType(string type)
-        {
-            switch (type)
-            {
-                case "b": return ArcLineType.B;
-                case "s": return ArcLineType.S;
-                case "si": return ArcLineType.Si;
-                case "so": return ArcLineType.So;
-                case "sisi": return ArcLineType.SiSi;
-                case "siso": return ArcLineType.SiSo;
-                case "sosi": return ArcLineType.SoSi;
-                case "soso": return ArcLineType.SoSo;
-                default: return ArcLineType.S;
-            }
-        }
-    }
-
-    public class ArcaeaAffCamera : ArcaeaAffEvent
-    {
-        public Vector3 Move, Rotate;
-        public string CameraType;
-        public int Duration;
-    }
-
 }
