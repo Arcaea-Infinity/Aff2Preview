@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace AimuBotCS.Modules.Arcaea.Aff2Preview
+namespace AffTools.AffReader
 {
     public enum ArcLineType
     {
@@ -56,7 +56,7 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
             Console.WriteLine($"在第 {line} 行处的 {type} 型事件中发生读取错误。\n{content}\n{reason}");
         }
     }
-    
+
     public class ArcaeaAffEvent
     {
         public int Timing;
@@ -87,7 +87,7 @@ namespace AimuBotCS.Modules.Arcaea.Aff2Preview
         public List<int>? ArcTaps;
 
         public bool NoInput;
-        
+
         public static ArcLineType ToArcLineType(string type)
         {
             return type switch
