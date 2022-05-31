@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/AffTools-2.0-coral)](#)
 [![C#](https://img.shields.io/badge/.NET-6.0-blue)](#)
-[![License](https://img.shields.io/static/v1?label=LICENSE&message=616%20SB&color=1f1e33)](./blob/main/LICENSE)
+[![License](https://img.shields.io/static/v1?label=LICENSE&message=616%20SB&color=1f1e33)](/LICENSE)
 
 A toolset for Arcaea aff files.
 
