@@ -10,6 +10,7 @@ AffRenderer affRenderer = new("assets/2.aff")
     Rating = 10.3f,
     Notes = 0,
     ChartBpm = 200,
+    IsMirror = false
 };
 
 affRenderer.LoadResource(
