@@ -198,6 +198,7 @@ internal class AffRenderer
     public string Artist { get; set; } = "";
     public string Charter { get; set; } = "";
     public int Difficulty { get; set; } = 0;
+    public bool IsMirror { get; set; } = false;
     public string DiffStr => Difficulty switch
     {
         0 => "Past",
@@ -218,6 +219,27 @@ internal class AffRenderer
         Config.AirTap.FromFile(airTap);
     }
 
+        private void MirrorAff()
+    {
+        foreach (var affEvent in affReader.Events)
+        {
+            switch (affEvent)
+            {
+                case ArcaeaAffTap tap:
+                    tap.Track = 5 - tap.Track;
+                    break;
+                case ArcaeaAffHold hold:
+                    hold.Track = 5 - hold.Track;
+                    break;
+                case ArcaeaAffArc arc:
+                    arc.XStart = 1f - arc.XStart;
+                    arc.XEnd = 1f - arc.XEnd;
+                    arc.Color = 1 - arc.Color;
+                    break;
+            }
+        }
+    }
+
     private void LoadAff()
     {
         affReader.Parse(AffFile);
@@ -234,6 +256,7 @@ internal class AffRenderer
         Config.Side = Side;
 
         LoadAff();
+        if (IsMirror) MirrorAff();
 
         var trackImg = DrawTrackObjects();
 
