@@ -28,10 +28,13 @@ AffRenderer affRenderer = new("assets/2.aff")
     Side = 0,  // 0:hikari  1:tairitsu  2:dynamix or tempestissimo
     Difficulty = 2,
     Rating = 10.3f,
-    Notes = 0,
+    Notes = 0, // notes are counted by internal note counter now
     ChartBpm = 200,
+    IsMirror = false, // controls whether the chart is mirrored or not
 };
 
+// image resource to generate chart preview.
+// for each side, please specify the image manually.
 affRenderer.LoadResource(
     "assets/note.png",
     "assets/note_hold.png",
@@ -56,6 +59,9 @@ Can analyze aff file and generate chart data.
 - Note timing
 - Segment timing, bpm and beat per segment
 - Aff flaw detection
+- Note counting
+- Note count at specific timing
+- Note density
 
 ## LICENSE
 
@@ -64,5 +70,7 @@ Assets: `CC-BY-NC` [Arcaea-Infinity/OpenArcaeaArts](https://github.com/Arcaea-In
 `Gift`:  Source: BOFXVI
 
 Aff & cover `616 SB License` Misaka12456 from [Arcaea-Infinity/FanmadeCharts](https://github.com/Arcaea-Infinity/FanmadeCharts)
+
+Part of note counting code modified from [Lolitania/ArcaeaChartNoteCounterLibrary](https://github.com/Lolitania/ArcaeaChartNoteCounterLibrary) under `BSD-3-Clause license`.
 
 Licensed under `616 SB License`.
