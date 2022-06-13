@@ -88,6 +88,8 @@ namespace AffTools.AffReader
 
         public bool NoInput;
 
+        public bool HasHead = true;
+
         public static ArcLineType ToArcLineType(string type)
         {
             return type switch

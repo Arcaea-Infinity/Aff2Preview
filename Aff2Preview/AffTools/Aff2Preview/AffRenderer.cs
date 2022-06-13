@@ -7,17 +7,17 @@ namespace AffTools.Aff2Preview;
 
 internal class AffRenderer
 {
-    abstract class DrawObjectBase
+    private abstract class DrawObjectBase
     {
-        public Vector3 Location { get; set; }
+        public Vector3 Location { get; init; }
         public abstract void Draw(GraphicsAdapter g);
     }
 
-    class ArcSegment : DrawObjectBase
+    private class ArcSegment : DrawObjectBase
     {
-        public Vector3 End { get; set; }
-        public int ColorId { get; set; }
-        public bool IsVoid { get; set; }
+        public Vector3 End { get; init; }
+        public int ColorId { get; init; }
+        public bool IsVoid { get; init; }
         public override void Draw(GraphicsAdapter g)
         {
             ColorDesc color = new();
@@ -38,7 +38,7 @@ internal class AffRenderer
         }
     }
 
-    class ArcTap : DrawObjectBase
+    private class ArcTap : DrawObjectBase
     {
         public override void Draw(GraphicsAdapter g)
         {
@@ -53,9 +53,9 @@ internal class AffRenderer
         }
     }
 
-    class ConnectLine : DrawObjectBase
+    private class ConnectLine : DrawObjectBase
     {
-        public Vector3 End { get; set; }
+        public Vector3 End { get; init; }
         public override void Draw(GraphicsAdapter g)
         {
             g.DrawLine(
@@ -66,7 +66,7 @@ internal class AffRenderer
         }
     }
 
-    class TextObject : DrawObjectBase
+    private class TextObject : DrawObjectBase
     {
         public string Text { get; set; } = "";
         public FontDesc Font { get; set; }
@@ -134,7 +134,7 @@ internal class AffRenderer
         public uint TrackStripColor
             => Side switch
             {
-                0 => 0x08808080,
+                0 => 0x0f808080,
                 1 => 0x08f0f8ff,
                 _ => 0
             };
@@ -178,7 +178,7 @@ internal class AffRenderer
             => (TotalTrackLength - timing) / TimingScale - 3;
     }
 
-    private readonly AffReader.ArcaeaAffReader affReader = new();
+    private readonly ArcaeaAffReader _affReader = new();
 
     public static ChartConfig Config = new();
 
@@ -219,9 +219,9 @@ internal class AffRenderer
         Config.AirTap.FromFile(airTap);
     }
 
-        private void MirrorAff()
+    private void MirrorAff()
     {
-        foreach (var affEvent in affReader.Events)
+        foreach (var affEvent in _affReader.Events)
         {
             switch (affEvent)
             {
@@ -242,9 +242,9 @@ internal class AffRenderer
 
     private void LoadAff()
     {
-        affReader.Parse(AffFile);
+        _affReader.Parse(AffFile);
 
-        _affAnalyzer = new(affReader);
+        _affAnalyzer = new(_affReader);
         _affAnalyzer.AnalyzeSegments();
         _affAnalyzer.AnalyzeNotes();
 
@@ -257,6 +257,8 @@ internal class AffRenderer
 
         LoadAff();
         if (IsMirror) MirrorAff();
+
+        _affAnalyzer.CalcNotes();
 
         var trackImg = DrawTrackObjects();
 
@@ -313,7 +315,8 @@ internal class AffRenderer
                 0, (int)y, Config.TotalTrackWidth, (int)(Config.Rows * Config.SegmentLengthInBaseBpm));
         }
 
-        DrawSegmentNumber(g);
+        DrawComboNumber(g);
+        //DrawSegmentNumber(g);
         DrawSegmentBpm(g);
         DrawNoteLength(g);
 
@@ -345,6 +348,23 @@ internal class AffRenderer
         {
             g.DrawLine(57f, -20, i, 300, i - 200);
         }
+
+        foreach (var note in _affAnalyzer.Notes)
+        {
+            if (note.TimePoint > Config.TotalTrackLength)
+                break;
+
+            float density = note.InvDuration - 6;
+
+            if (density < 0) continue;
+
+            density = density * density * 0.5f;
+
+            g.SetColor(ColorDesc.FromArgb((byte)density, 255, 0, 0));
+            g.FillRectangle(ColorDesc.FromArgb((byte)density, 255, 0, 0),
+                0, Config.TimingToY(note.TimePoint + note.Duration) - 1,
+                Config.TotalTrackWidth, (note.Duration + 3) / Config.TimingScale);
+        }
     }
 
     public ImageDesc DrawTrackObjects()
@@ -363,7 +383,7 @@ internal class AffRenderer
 
     void DrawFloorNotes(GraphicsAdapter g)
     {
-        foreach (var ev in affReader.Events)
+        foreach (var ev in _affReader.Events)
         {
             if (ev is ArcaeaAffTap tap)
             {
@@ -391,121 +411,117 @@ internal class AffRenderer
 
         var AddDoubleTip = (float x, float z) =>
         {
-            float sx = x <= Config.DrawingTrackWidth / 2 ? x + Config.SingleTrackWidth / 2 + 5 : x - Config.SingleTrackWidth / 2 - 20;
+            var sx = x <= Config.DrawingTrackWidth / 2 ? x + Config.SingleTrackWidth / 2 + 5 : x - Config.SingleTrackWidth / 2 - 20;
             airObjects.Add(new TextObject()
             {
                 Text = "x2",
                 Location = new Vector3(sx, 1.5f, z + 80),
-                Color = ColorDesc.FromArgb(0xff000000),
+                Color = Config.Side ==0? ColorDesc.FromArgb(0xff000000):ColorDesc.FromArgb(0xddffffff),
                 Font = new FontDesc("exo", 10f, FontDescStyle.Bold)
             });
         };
 
-        foreach (var ev in affReader.Events)
+        foreach (var ev in _affReader.Events)
         {
-            if (ev is ArcaeaAffArc t)
+            if (ev is not ArcaeaAffArc t) continue;
+            
+            var duration = t.EndTiming - t.Timing;
+
+            var segSize = duration / (duration < 1000 ? 14 : 7);
+            var segmentCount = (segSize == 0 ? 0 : duration / segSize) + 1;
+
+            List<Vector3> segments = new();
+
+            Vector3 start = new();
+            Vector3 end = new((t.XStart + 0.5f) * Config.DrawingTrackWidth / 2 + 3, t.YStart, t.Timing);
+            segments.Add(end);
+
+            for (var i = 0; i < segmentCount - 1; i++)
             {
-                int duration = t.EndTiming - t.Timing;
-
-                int segSize = duration / (duration < 1000 ? 14 : 7);
-                var segmentCount = (segSize == 0 ? 0 : duration / segSize) + 1;
-
-                List<Vector3> segments = new();
-
-                Vector3 start = new();
-                Vector3 end = new((t.XStart + 0.5f) * Config.DrawingTrackWidth / 2 + 3, t.YStart, t.Timing);
+                start = end;
+                var x = ArcAlgorithm.X(t.XStart, t.XEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
+                var y = ArcAlgorithm.Y(t.YStart, t.YEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
+                end = new Vector3((x + 0.5f) * Config.DrawingTrackWidth / 2 + 3,
+                    y,
+                    t.Timing + segSize * (i + 1));
                 segments.Add(end);
+            }
 
-                for (int i = 0; i < segmentCount - 1; i++)
+            // last segment
+            {
+                start = end;
+                end = new Vector3((t.XEnd + 0.5f) * Config.DrawingTrackWidth / 2 + 3,
+                    t.YEnd,
+                    t.EndTiming);
+                segments.Add(end);
+            }
+
+            for (var i = 0; i < segments.Count - 1; i++)
+            {
+                var st = segments[i];
+                var ed = segments[i + 1];
+
+                airObjects.Add(new ArcSegment()
                 {
-                    start = end;
-                    float x = ArcAlgorithm.X(t.XStart, t.XEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
-                    float y = ArcAlgorithm.Y(t.YStart, t.YEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
-                    end = new Vector3((x + 0.5f) * Config.DrawingTrackWidth / 2 + 3,
-                                      y,
-                                      t.Timing + segSize * (i + 1));
-                    segments.Add(end);
-                }
+                    IsVoid = t.IsVoid,
+                    ColorId = t.Color,
+                    Location = st,
+                    End = ed,
+                });
+            }
 
-                // last segment
+            if (t.ArcTaps is null)
+                continue;
+
+            foreach (var airTapTiming in t.ArcTaps)
+            {
+                float tm = airTapTiming - t.Timing;
+                var x = ArcAlgorithm.X(t.XStart, t.XEnd, tm / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
+                var y = ArcAlgorithm.Y(t.YStart, t.YEnd, tm / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
+                x = (x + 0.5f) * Config.DrawingTrackWidth / 2;
+
+                airTaps.Add(new ArcTap()
                 {
-                    start = end;
-                    end = new Vector3((t.XEnd + 0.5f) * Config.DrawingTrackWidth / 2 + 3,
-                                      t.YEnd,
-                                      t.EndTiming);
-                    segments.Add(end);
-                }
+                    Location = new Vector3(x + 2, y, airTapTiming)
+                });
 
-                for (int i = 0; i < segments.Count - 1; i++)
+                // detect underneath notes
+                foreach (var evOther in _affReader.Events)
                 {
-                    var st = segments[i];
-                    var ed = segments[i + 1];
-
-                    airObjects.Add(new ArcSegment()
+                    if (evOther is ArcaeaAffTap evAt)
                     {
-                        IsVoid = t.IsVoid,
-                        ColorId = t.Color,
-                        Location = st,
-                        End = ed,
-                    });
-                }
+                        if (Math.Abs(evAt.Timing - airTapTiming) > 3) continue;
+                        
+                        float x_t = Config.DrawingTrackWidth * (evAt.Track - 1) / 4 + Config.SingleTrackWidth / 2;
+                        float y_t = Config.TimingToY(evAt.Timing);
 
-                if (t.ArcTaps is null)
-                    continue;
-
-                foreach (var airTapTiming in t.ArcTaps)
-                {
-                    float tm = airTapTiming - t.Timing;
-                    float x = ArcAlgorithm.X(t.XStart, t.XEnd, tm / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
-                    float y = ArcAlgorithm.Y(t.YStart, t.YEnd, tm / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
-                    x = (x + 0.5f) * Config.DrawingTrackWidth / 2;
-
-                    airTaps.Add(new ArcTap()
-                    {
-                        Location = new Vector3(x + 2, y, airTapTiming)
-                    });
-
-                    // detect underneath notes
-                    foreach (var ev_other in affReader.Events)
-                    {
-                        if (ev_other is ArcaeaAffTap ev_at)
+                        airObjects.Add(new ConnectLine()
                         {
-                            if (Math.Abs(ev_at.Timing - airTapTiming) <= 3)
-                            {
-                                float x_t = Config.DrawingTrackWidth * (ev_at.Track - 1) / 4 + Config.SingleTrackWidth / 2;
-                                float y_t = Config.TimingToY(ev_at.Timing);
+                            Location = new Vector3(x_t + 3, y, airTapTiming + 6),
+                            End = new Vector3(x + 3, 0, airTapTiming + 6)
+                        });
 
-                                airObjects.Add(new ConnectLine()
-                                {
-                                    Location = new Vector3(x_t + 3, y, airTapTiming + 6),
-                                    End = new Vector3(x + 3, 0, airTapTiming + 6)
-                                });
-
-                                if (Math.Abs(x - x_t) <= 5)
-                                    AddDoubleTip(x, airTapTiming);
-                            }
-                        }
-                        else if (!t.Equals(ev_other) && ev_other is ArcaeaAffArc ev_arc)
-                        {
-                            if (ev_arc.ArcTaps is null)
-                                continue;
-
-                            foreach (int arc_t in ev_arc.ArcTaps)
-                            {
-                                if (Math.Abs(arc_t - airTapTiming) <= 3)
-                                {
-                                    float arc_t_x = ArcAlgorithm.X(ev_arc.XStart, ev_arc.XEnd, ev_arc.Timing / duration, ArcaeaAffArc.ToArcLineType(ev_arc.LineType));
-                                    float arc_t_y = ArcAlgorithm.Y(ev_arc.YStart, ev_arc.YEnd, ev_arc.Timing / duration, ArcaeaAffArc.ToArcLineType(ev_arc.LineType));
-                                    arc_t_x = (arc_t_x + 0.5f) * Config.DrawingTrackWidth / 2;
-
-                                    if (Math.Abs(arc_t_x - x) <= 5 && arc_t_y < y)
-                                        AddDoubleTip(x, airTapTiming);
-                                }
-                            }
-
-                        }
+                        if (Math.Abs(x - x_t) <= 5)
+                            AddDoubleTip(x, airTapTiming);
                     }
+                    else if (!t.Equals(evOther) && evOther is ArcaeaAffArc evArc)
+                    {
+                        if (evArc.ArcTaps is null)
+                            continue;
 
+                        foreach (var arcT in evArc.ArcTaps)
+                        {
+                            if (Math.Abs(arcT - airTapTiming) > 3) continue;
+                            
+                            float arc_t_x = ArcAlgorithm.X(evArc.XStart, evArc.XEnd, evArc.Timing / duration, ArcaeaAffArc.ToArcLineType(evArc.LineType));
+                            float arc_t_y = ArcAlgorithm.Y(evArc.YStart, evArc.YEnd, evArc.Timing / duration, ArcaeaAffArc.ToArcLineType(evArc.LineType));
+                            arc_t_x = (arc_t_x + 0.5f) * Config.DrawingTrackWidth / 2;
+
+                            if (Math.Abs(arc_t_x - x) <= 5 && arc_t_y < y)
+                                AddDoubleTip(x, airTapTiming);
+                        }
+
+                    }
                 }
 
             }
@@ -524,32 +540,89 @@ internal class AffRenderer
 
         for (int i = 0, t = 1; i < _affAnalyzer.SegmentTimings.Count; i++)
         {
-            int segment_timing = (int)_affAnalyzer.SegmentTimings[i];
+            var segmentTiming = (int)_affAnalyzer.SegmentTimings[i];
 
-            if (segment_timing > _affAnalyzer.totalTime)
+            if (segmentTiming > _affAnalyzer.totalTime)
                 break;
 
-            if (segment_timing < 0)
+            if (segmentTiming < 0)
                 continue;
 
             var next = i + 1;
             if (next < _affAnalyzer.SegmentTimings.Count)
             {
-                int segment_timing2 = (int)_affAnalyzer.SegmentTimings[next];
-                if (segment_timing2 - segment_timing < 100)
+                var segmentTiming2 = (int)_affAnalyzer.SegmentTimings[next];
+                if (segmentTiming2 - segmentTiming < 100)
                     continue;
             }
 
             var colHeight = Config.Rows * Config.SegmentLengthInBaseBpm;
-            var sy = segment_timing / Config.TimingScale;
+            var sy = segmentTiming / Config.TimingScale;
 
             float y = colHeight - sy % colHeight;
             float x = Config.ColWidth * (sy / (int)colHeight);
-            if (y <= 1)
+            if (y <= 5)
                 y = Config.Rows * Config.SegmentLengthInBaseBpm;
 
             g.DrawString(t.ToString(), x + Config.ColWidth - 220 - 25, y + 37);
             t++;
+        }
+    }
+
+    public void DrawComboNumber(GraphicsAdapter g)
+    {
+        ColorDesc c = ColorDesc.FromArgb(Config.Side == 0 ? 0xff000000 : 0xffffffff);
+        c.SetColorA(240);
+        g.SetColor(c);
+        g.SetFont("exo", 10f, FontDescStyle.Bold);
+
+        int prevCombo = -1;
+        var endTime = _affAnalyzer.realTotalTime;
+        var fullCombo = _affAnalyzer.Total;
+        var colHeight = Config.Rows * Config.SegmentLengthInBaseBpm;
+
+        for (int i = 0; i < _affAnalyzer.SegmentTimings.Count; i++)
+        {
+            int segmentTiming = (int)_affAnalyzer.SegmentTimings[i];
+
+            if (segmentTiming > endTime - 10)
+                break;
+
+            if (segmentTiming < 0)
+                continue;
+
+            var next = i + 1;
+            if (next < _affAnalyzer.SegmentTimings.Count)
+            {
+                int segmentTimingNext = (int)_affAnalyzer.SegmentTimings[next];
+                if (segmentTimingNext - segmentTiming < 100)
+                    continue;
+            }
+
+            var combo = _affAnalyzer.GetCombo(segmentTiming);
+            if (combo == prevCombo)
+                continue;
+
+            prevCombo = combo;
+
+            var sy = segmentTiming / Config.TimingScale;
+
+            float y = colHeight - sy % colHeight;
+            float x = Config.ColWidth * (sy / (int)colHeight);
+            if (y <= 5)
+                y = Config.Rows * Config.SegmentLengthInBaseBpm;
+
+            g.DrawString(combo.ToString(), x + Config.ColWidth - 220 - 29, y + 37);
+        }
+        {
+            var sy = (int)endTime / Config.TimingScale;
+
+            float y = colHeight - sy % colHeight;
+            float x = Config.ColWidth * (sy / (int)colHeight);
+            if (y <= 5)
+                y = Config.Rows * Config.SegmentLengthInBaseBpm;
+
+            g.DrawString(fullCombo.ToString(), x + Config.ColWidth - 220 - 29, y + 37);
         }
     }
 
@@ -563,60 +636,57 @@ internal class AffRenderer
         float lastBpl = 0;
         float lastBpm = 0;
 
-        foreach (var ev in affReader.Events)
+        foreach (var ev in _affReader.Events)
         {
-            if (ev is ArcaeaAffTiming t)
+            if (ev is not ArcaeaAffTiming t) continue;
+            
+            if (t.Timing > Config.TotalTrackLength)
+                break;
+
+            if (t.Timing == 0 && t.TimingGroup != 0)
+                continue;
+
+            if (t.Bpm is 0 or > 1000)
+                continue;
+
+            var colHeight = Config.Rows * Config.SegmentLengthInBaseBpm;
+            float rate = t.Bpm / _affAnalyzer.baseBpm;
+            float y = colHeight - t.Timing / Config.TimingScale % colHeight;
+            float x = Config.ColWidth * (t.Timing / Config.TimingScale / (int)colHeight);
+            if (y <= 5)
+                y = (int)colHeight;
+
+            if (lastBpm != t.Bpm)
             {
-                if (t.Timing > Config.TotalTrackLength)
-                    break;
+                g.DrawStringLayoutLTRB($"{(int)t.Bpm}",
+                    x + Config.ColWidth - 220 - 20 - 60, y + 37,
+                    x + Config.ColWidth - 220 - 20 - 6, y + 60,
+                    StringAdapterAlignment.Far);
 
-                if (t.Timing == 0 && t.TimingGroup != 0)
-                    continue;
-
-                if (t.Bpm == 0 || t.Bpm > 1000)
-                    continue;
-
-                var colHeight = Config.Rows * Config.SegmentLengthInBaseBpm;
-                float rate = t.Bpm / _affAnalyzer.baseBpm;
-                float y = colHeight - t.Timing / Config.TimingScale % colHeight;
-                float x = Config.ColWidth * (t.Timing / Config.TimingScale / (int)colHeight);
-                if (y <= 1)
-                    y = (int)colHeight;
-
-                if (lastBpm != t.Bpm)
-                {
-                    g.DrawStringLayoutLTRB($"{(int)t.Bpm}",
-                        x + Config.ColWidth - 220 - 20 - 50, y + 37,
-                        x + Config.ColWidth - 220 - 20 - 3, y + 60,
-                        StringAdapterAlignment.Far);
-
-                    lastBpm = t.Bpm;
-                }
-                if (lastBpl != t.BeatsPerLine)
-                {
-                    var bpl = t.BeatsPerLine;
-                    var bpl_str = "";
-
-                    if ((int)(bpl * 100) % 100 == 0)
-                        bpl_str = $"{(int)bpl}/4";
-                    else if ((int)(bpl * 200) % 100 == 0)
-                    {
-                        bpl_str = $"{(int)(bpl * 2)}/8";
-                    }
-                    else if ((int)(bpl * 400) % 100 == 0)
-                    {
-                        bpl_str = $"{(int)(bpl * 2)}/16";
-                    }
-                    if (t.Bpm > 0)
-                        g.DrawStringLayoutLTRB($"{bpl_str}",
-                            x + Config.ColWidth - 220 - 20 - 50, y + 52,
-                            x + Config.ColWidth - 220 - 20 - 3, y + 80,
-                            StringAdapterAlignment.Far);
-
-                    lastBpl = t.BeatsPerLine;
-                }
-
+                lastBpm = t.Bpm;
             }
+
+            if (lastBpl == t.BeatsPerLine) continue;
+            var bpl = t.BeatsPerLine;
+            var bplText = "";
+
+            if ((int)(bpl * 100) % 100 == 0)
+                bplText = $"{(int)bpl}/4";
+            else if ((int)(bpl * 200) % 100 == 0)
+            {
+                bplText = $"{(int)(bpl * 2)}/8";
+            }
+            else if ((int)(bpl * 400) % 100 == 0)
+            {
+                bplText = $"{(int)(bpl * 2)}/16";
+            }
+            if (t.Bpm > 0)
+                g.DrawStringLayoutLTRB($"{bplText}",
+                    x + Config.ColWidth - 220 - 20 - 60, y + 52,
+                    x + Config.ColWidth - 220 - 20 - 6, y + 80,
+                    StringAdapterAlignment.Far);
+
+            lastBpl = t.BeatsPerLine;
         }
     }
 
@@ -638,7 +708,7 @@ internal class AffRenderer
             if (y <= 1)
                 y = (int)colHeight;
 
-            string s =
+            var s =
                 (note.Divide > 0 ? note.Divide.ToString() : "-") +
                 (note.hasDot ? "." : "") +
                 (note.beyondFull ? "-" : "");
@@ -646,6 +716,7 @@ internal class AffRenderer
             g.DrawString(s, x + Config.ColWidth - 218, y + 37);
         }
     }
+
     public void DrawFooter(GraphicsAdapter g)
     {
         var footerX = 25;
@@ -662,23 +733,30 @@ internal class AffRenderer
         if (hasCover)
             g.DrawImageScaled(Config.Cover, footerX, footerY, 100, 100);
 
-        Regex en_regex = new(@"^[A-Za-z\d_\s/\(\)\+\=\-\.\[\]:\(\)&]+$");
+        Regex enRegex = new(@"^[A-Za-z\d_\s/\(\)\+\=\-\.\[\]:\(\)&']+$");
 
-        string _title = Title + $"   [ {DiffStr} {Rating:F1} ]" + (Notes > 0 ? $"    Notes {Notes}" : "");
+        var title = Title +
+            $"   [ {DiffStr} {Rating:F1} ]" +
+            $"    Tap{_affAnalyzer.Tap}   " +
+            $"Hold{_affAnalyzer.Hold}   " +
+            $"Arc{_affAnalyzer.Arc[0] + _affAnalyzer.Arc[1]}   " +
+            $"[ Blue{_affAnalyzer.Arc[0]} Red{_affAnalyzer.Arc[1]} ]   " +
+            $"ArcTap{_affAnalyzer.ArcTap}   " +
+            $"Total{_affAnalyzer.Total}";
+        
+        var secondLine = (ChartBpm > 0 ? $"Bpm {ChartBpm}     " : "") + $"{Artist} / {Charter}";
 
         g.SetColor(ColorDesc.FromArgb(Config.Side == 0 ? 0xff000000 : 0xffffffff));
-        g.SetFont(en_regex.IsMatch(_title) ? "GeosansLight" : "Kazesawa Regular", 26f, FontDescStyle.Regular);
-        g.DrawString(_title, footerX + 15 + (hasCover ? 100 : 0), footerY + 10);
+        //g.SetFont(enRegex.IsMatch(title) || enRegex.IsMatch(secondLine) ? "GeosansLight" : "Kazesawa Regular", 26f, FontDescStyle.Regular);
+        g.SetFont("GeosansLight", 26f, FontDescStyle.Regular);
+        g.DrawString(title, footerX + 15 + (hasCover ? 100 : 0), footerY + 10);
 
-        string _cmps = (ChartBpm > 0 ? $"Bpm {ChartBpm}     " : "") + $"{Artist} / {Charter}";
-
-        g.SetFont(en_regex.IsMatch(_cmps) ? "GeosansLight" : "Kazesawa Regular", 26f, FontDescStyle.Regular);
-        g.DrawString(_cmps, footerX + 15 + (hasCover ? 100 : 0), footerY + 50);
+        g.DrawString(secondLine, footerX + 15 + (hasCover ? 100 : 0), footerY + 50);
 
         g.SetColor(ColorDesc.FromArgb(0xffff7f50));
         g.SetFont("exo", 18f, FontDescStyle.Bold);
 
-        g.DrawStringLayout("Generate by AffTools.Aff2Preview 2.0 ",
+        g.DrawStringLayout("Generate by AffTools.Aff2Preview 2.1 ",
             footerX + footerW - 500, footerY + footerH - 30,
             500, 30,
             StringAdapterAlignment.Far);

@@ -38,6 +38,12 @@ public class ColorDesc
         color.SetColor(argb);
         return color;
     }
+    public static ColorDesc FromArgb(byte a, byte r, byte g, byte b)
+    {
+        ColorDesc color = new();
+        color.SetColor(a,r,g,b);
+        return color;
+    }
 }
 
 public enum FontDescStyle

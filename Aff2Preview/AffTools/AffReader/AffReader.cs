@@ -390,7 +390,7 @@ public class ArcaeaAffReader
                         }
                         TimingGroupProperties[CurrentTimingGroup] = new TimingGroupProperties
                         {
-                            NoInput = noInput
+                            NoInput = noInput,
                         };
                         break;
                     case EventType.TimingGroupEnd:
