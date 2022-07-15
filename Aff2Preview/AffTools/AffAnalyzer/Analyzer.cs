@@ -65,6 +65,81 @@ internal class Analyzer
         }
     }
 
+    /// <summary>
+    /// To pair the scenecontrol statement
+    /// </summary>
+    /// <returns></returns>
+    public List<(ArcaeaAffSceneControl, ArcaeaAffSceneControl)> GetPairEnwidenLanes()
+    {
+        var list = new List<ArcaeaAffSceneControl>();
+        var result = new List<(ArcaeaAffSceneControl, ArcaeaAffSceneControl)>();
+
+        foreach (var affEvent in _affReader.Events)
+        {
+            if (affEvent.Type != EventType.SceneControl) continue;
+            if ((affEvent as ArcaeaAffSceneControl)?.SceneControlTypeName != "enwidenlanes") continue;
+
+            list.Add((ArcaeaAffSceneControl)affEvent);
+        }
+
+        if (list.Count % 2 != 0) // Pair the enwidenlane
+        {
+            var end = new ArcaeaAffSceneControl
+            {
+                Timing = _affReader.Events.Last().Timing,
+                Type = EventType.SceneControl,
+                Parameters = new List<object>() { 0, 0 },
+                SceneControlTypeName = "enwidenlanes"
+            };
+            list.Add(end);
+        }
+
+        for (int i = 0; i < list.Count - 1; i++)
+        {
+            var statement = list[i];
+            if (Convert.ToInt32(statement.Parameters[1]) != 1) continue;
+            if (Convert.ToInt32(list[i + 1].Parameters[1]) == 0) result.Add((statement, list[i + 1]));
+        }
+        return result;
+    }
+
+    public List<(int, int)> Get4LaneInterval(int? end)
+    {
+        var list = new List<ArcaeaAffSceneControl>();
+        var result = new List<(int, int)>();
+
+        foreach (var affEvent in _affReader.Events)
+        {
+            if (affEvent.Type != EventType.SceneControl) continue;
+            if ((affEvent as ArcaeaAffSceneControl)?.SceneControlTypeName != "enwidenlanes") continue;
+
+            list.Add((ArcaeaAffSceneControl)affEvent);
+        }
+
+
+        if (list.Count == 0)
+        {
+            result.Add((0, end ?? _affReader.Events.Last().Timing));
+            return result;
+        }
+
+        var startSegment = 0;
+        var pair = GetPairEnwidenLanes();
+        foreach (var statement in list)
+        {
+            if (pair.TrueForAll(x => x.Item1.Timing != startSegment && x.Item2.Timing != statement.Timing))
+                result.Add((startSegment, statement.Timing));
+            startSegment = statement.Timing;
+        }
+
+        if (Convert.ToInt32(list.Last().Parameters[1]) == 0)
+        {
+            result.Add((list.Last().Timing, end ?? _affReader.Events.Last().Timing));
+        }
+
+        return result;
+    }
+
     public void AnalyzeNotes()
     {
         _noteRaws.Clear();

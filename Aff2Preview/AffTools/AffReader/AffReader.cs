@@ -84,7 +84,7 @@ public class ArcaeaAffReader
                 TimingGroup = CurrentTimingGroup,
                 NoInput = noInput
             });
-            if (num is <= 0 or >= 5)
+            if (num is < 0 or > 5)
                 throw new ArcaeaAffFormatException("轨道错误");
         }
         catch (ArcaeaAffFormatException)
@@ -115,7 +115,7 @@ public class ArcaeaAffReader
                 TimingGroup = CurrentTimingGroup,
                 NoInput = noInput
             });
-            if (num3 is <= 0 or >= 5)
+            if (num3 is < 0 or > 5)
                 throw new ArcaeaAffFormatException("轨道错误");
             if (num2 < num)
                 throw new ArcaeaAffFormatException("持续时间小于0");
@@ -144,7 +144,7 @@ public class ArcaeaAffReader
             var yStart = stringParser.ReadFloat(",");
             var yEnd = stringParser.ReadFloat(",");
             var color = stringParser.ReadInt(",");
-            stringParser.ReadString(",");
+            var fx = stringParser.ReadString(",");
             var isVoid = stringParser.ReadBool(")");
             List<int>? list = null;
             if (stringParser.Current != ";")
@@ -168,6 +168,7 @@ public class ArcaeaAffReader
                 YStart = yStart,
                 YEnd = yEnd,
                 Color = color,
+                Fx = fx,
                 IsVoid = isVoid,
                 Type = EventType.Arc,
                 ArcTaps = list,

@@ -82,6 +82,8 @@ namespace AffTools.AffReader
 
         public int Color;
 
+        public string Fx = null!;
+
         public bool IsVoid;
 
         public List<int>? ArcTaps;
