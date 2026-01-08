@@ -1,7 +1,7 @@
 # AffTools
 
 [![Version](https://img.shields.io/badge/AffTools-2.1-coral)](#)
-[![C#](https://img.shields.io/badge/.NET-6.0-blue)](#)
+[![C#](https://img.shields.io/badge/.NET-10.0-blue)](#)
 [![License](https://img.shields.io/static/v1?label=LICENSE&message=616%20SB&color=1f1e33)](/LICENSE)
 
 A toolset for Arcaea aff files.
@@ -20,6 +20,7 @@ Usage:
 ```csharp
 using AffTools.Aff2Preview;
 
+AffRenderer.Config.GlobalArcSamplingDensity = 2.0f; // default is 1.0f
 AffRenderer affRenderer = new("assets/2.aff")
 {
     Title = "Gift",
@@ -38,7 +39,9 @@ AffRenderer affRenderer = new("assets/2.aff")
 affRenderer.LoadResource(
     "assets/note.png",
     "assets/note_hold.png",
-    "assets/arc_body.png",
+    "assets/arctap.png",
+    "assets/sfx_arctap.png" // empty string if unwanted
+    "assets/designant_arctap.png" // empty string if unwanted
     "assets/base.jpg",  // empty string if unwanted
     "assets/base.jpg"); // empty string if unwanted
 
