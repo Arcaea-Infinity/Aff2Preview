@@ -17,7 +17,7 @@ public class ArcaeaAffReader
 
     private static EventType DetermineType(string line)
     {
-        if (line.StartsWith("("))
+        if (line.StartsWith('('))
             return EventType.Tap;
         if (line.StartsWith("timing("))
             return EventType.Timing;
@@ -145,18 +145,43 @@ public class ArcaeaAffReader
             var yEnd = stringParser.ReadFloat(",");
             var color = stringParser.ReadInt(",");
             var fx = stringParser.ReadString(",");
-            var isVoid = stringParser.ReadBool(")");
+            // var isVoid = stringParser.ReadBool(")"); // we're updating to ver 6.8.0 or later
+            string arcTypeString = stringParser.ReadString([",", ")"], out string arcTypeTerminator);
+            float sampleDensity = 1.0f;
+            if (arcTypeTerminator == ",")
+            {
+                sampleDensity = Math.Max(stringParser.ReadFloat(")"), 1.0f);
+            }
+
             List<int>? list = null;
             if (stringParser.Current != ";")
             {
-                list = new List<int>();
-                isVoid = true;
+                list = [];
+                //isVoid = true;
+                // Designant arc has made an exception so we could not set the arc type to void.
                 do
                 {
                     stringParser.Skip(8);
-                    list.Add(stringParser.ReadInt(")"));
+                    int arctapTiming = stringParser.ReadInt(")");
+                    if (arctapTiming > num2)
+                    {
+                        Console.WriteLine($"ArcTap out of trace. The timing of ArcTap is {arctapTiming}, but the trace ends at {num2}.");
+                    }
+                    list.Add(arctapTiming);
                 }
                 while (!(stringParser.Current != ","));
+            }
+
+            ArcType type = arcTypeString switch
+            {
+                "false" => ArcType.Arc,
+                "true" => ArcType.Void,
+                "designant" => ArcType.Designant,
+                _ => ArcType.Arc,
+            };
+            if (color == 3 && num == num2)
+            {
+                type = ArcType.ScaledArctap;
             }
             if (!noInput) Events.Add(new ArcaeaAffArc
             {
@@ -169,11 +194,12 @@ public class ArcaeaAffReader
                 YEnd = yEnd,
                 Color = color,
                 Fx = fx,
-                IsVoid = isVoid,
+                ArcType = type,
                 Type = EventType.Arc,
                 ArcTaps = list,
                 TimingGroup = CurrentTimingGroup,
-                NoInput = noInput
+                NoInput = noInput,
+                SamplingDensity = sampleDensity
             });
             if (num2 < num)
                 throw new ArcaeaAffFormatException("持续时间小于0");
@@ -232,7 +258,7 @@ public class ArcaeaAffReader
                 var timing = stringParser.ReadInt(",");
                 var sceneControlTypeName = stringParser.ReadString(",").Trim();
                 var text = stringParser.ReadString();
-                text = text.Substring(0, text.LastIndexOf(')'));
+                text = text[..text.LastIndexOf(')')];
                 var array = text.Split(',');
                 var list = new List<object>();
                 var text2 = "";

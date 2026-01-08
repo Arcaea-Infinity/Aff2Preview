@@ -6,7 +6,7 @@ using AffTools.MyGraphics;
 
 namespace AffTools.Aff2Preview;
 
-internal class AffRenderer
+internal partial class AffRenderer
 {
     private abstract class DrawObjectBase
     {
@@ -20,17 +20,22 @@ internal class AffRenderer
     {
         public Vector3 End { get; init; }
         public int ColorId { get; init; }
-        public bool IsVoid { get; init; }
+        public ArcType ArcType { get; init; }
         public override void Draw(GraphicsAdapter g)
         {
             float drawX = IsEnwiden ? Location.X * 4 / 6 + 0.25f * Config.DrawingTrackWidth * 4 / 6 : Location.X;
             float endX = IsEnwiden ? End.X * 4 / 6 + 0.25f * Config.DrawingTrackWidth * 4 / 6 : End.X;
             ColorDesc color = new();
             float w;
-            if (IsVoid)
+            if (ArcType == ArcType.Void)
             {
                 w = Config.ArcVoidWidth;
                 color.SetColor(Config.GetArcVoidColor());
+            }
+            else if (ArcType == ArcType.Designant)
+            {
+                w = Config.ArcVoidWidth;
+                color.SetColor(0xffa82860);
             }
             else
             {
@@ -45,14 +50,18 @@ internal class AffRenderer
 
     private class ArcTap : DrawObjectBase
     {
+        public ArcType ArcType { get; init; }
         public override void Draw(GraphicsAdapter g)
         {
             var airTap = Property switch
             {
-                "voice_wav" => Config.Side == 1 ? Config.SfxDTap : Config.SfxLTap,
-                "glass_wav" => Config.Side == 1 ? Config.SfxDTap : Config.SfxLTap,
-                _ => Config.AirTap
+                "none" => Config.AirTap,
+                _ => Config.SoundAirTap
             };
+            if (ArcType == ArcType.Designant)
+            {
+                airTap = Config.DesignantAirTap; 
+            }
             int drawX = IsEnwiden ? (int)(Location.X * 4 / 6 + Config.EnwidenTrackWidth / 2 + 3) :
                 (int)(Location.X - Config.SingleTrackWidth / 2 + 1);
 
@@ -99,14 +108,22 @@ internal class AffRenderer
         public ImageDesc Tap = new GdiImage();
         public ImageDesc Hold = new GdiImage();
         public ImageDesc AirTap = new GdiImage();
-
-        public readonly ImageDesc SfxDTap = new GdiImage();
-        public readonly ImageDesc SfxLTap = new GdiImage();
+        public ImageDesc SoundAirTap = new GdiImage();
+        public ImageDesc DesignantAirTap = new GdiImage();
 
         public int NoteHeight { get; set; } = 64;
         public int SkyNoteHeight { get; set; } = 61;
         public float ArcWidth { get; set; } = 20f;
         public float ArcVoidWidth { get; set; } = 3f;
+
+        public float GlobalArcSamplingDensity
+        {
+            get;
+            set
+            {
+                field = Math.Max(1f, value);
+            }
+        }
 
         public int TotalTrackWidth { get; set; } = 248;
         public int DrawingTrackWidth => TotalTrackWidth - 4;
@@ -131,6 +148,7 @@ internal class AffRenderer
                 0 => 0xffffffff,
                 1 => 0xff382a47,
                 2 => 0xffffffff,
+                3 => 0xffffffff,
                 _ => 0
             };
 
@@ -140,6 +158,7 @@ internal class AffRenderer
                 0 => 0xffd3d3d3,
                 1 => 0xff2e1f3c,
                 2 => 0xffd3d3d3,
+                3 => 0xffd3d3d3,
                 _ => 0
             };
 
@@ -149,6 +168,7 @@ internal class AffRenderer
                 0 => 0xa0d3d3d3,
                 1 => 0xc02e1f3c,
                 2 => 0xa0d3d3d3,
+                3 => 0xa0d3d3d3,
                 _ => 0
             };
 
@@ -158,6 +178,7 @@ internal class AffRenderer
                 0 => 0x0f808080,
                 1 => 0x08f0f8ff,
                 2 => 0x0f808080,
+                3 => 0x0f808080,
                 _ => 0
             };
 
@@ -167,6 +188,7 @@ internal class AffRenderer
                 0 => 0xffd3d3d3,
                 1 => 0xffa9a9a9,
                 2 => 0xffd3d3d3,
+                3 => 0xffd3d3d3,
                 _ => 0,
             };
 
@@ -191,6 +213,12 @@ internal class AffRenderer
                     1 => 0xffff69b4,
                     _ => 0,
                 },
+                3 => type switch
+                {
+                    0 => 0xff31dae7,
+                    1 => 0xffff69b4,
+                    _ => 0,
+                },
                 _ => 0xff31dae7,
             };
 
@@ -200,6 +228,7 @@ internal class AffRenderer
                 0 => 0xdc90ee90,
                 1 => 0xdcff1493,
                 2 => 0xdc90ee90,
+                3 => 0xdc90ee90,
                 _ => 0,
             };
 
@@ -237,10 +266,12 @@ internal class AffRenderer
         1 => "Present",
         2 => "Future",
         3 => "Beyond",
+        4 => "Eternal",
         _ => ""
     };
 
-    public void LoadResource(string tap, string hold, string airTap, string bg, string cover)
+    public static void LoadResource(string tap, string hold, string airTap, string sfxAirTap, 
+        string designantAirTap, string bg, string cover)
     {
         Config.Background.FromFile(bg);
 
@@ -249,6 +280,9 @@ internal class AffRenderer
         Config.Tap.FromFile(tap);
         Config.Hold.FromFile(hold);
         Config.AirTap.FromFile(airTap);
+        Config.SoundAirTap.FromFile(sfxAirTap);
+
+        Config.DesignantAirTap.FromFile(designantAirTap); // not always necessary.
     }
 
     private void MirrorAff()
@@ -322,6 +356,8 @@ internal class AffRenderer
             0 => 0xc8f0f0f0,
             1 => 0xc8202020,
             2 => 0xc8f0f0f0,
+            3 => 0xc8f0f0f0,
+            _ => throw new NotImplementedException(),
         });
 
         GraphicsAdapter g = new GdiPlusAdapter();
@@ -351,6 +387,7 @@ internal class AffRenderer
         for (int x = 0; x < Config.Cols; x++)
         {
             double y = trackImg.GetHeight() - (x + 1) * Config.Rows * Config.SegmentLengthInBaseBpm;
+
             g.DrawImageCliped(trackImg, x * colWidth + colWidth - Config.TotalTrackWidth + 50, 50,
                 0, (int)y, Config.TotalTrackWidth, (int)(Config.Rows * Config.SegmentLengthInBaseBpm));
         }
@@ -480,10 +517,10 @@ internal class AffRenderer
 
     public void DrawAirObjects(GraphicsAdapter g)
     {
-        List<DrawObjectBase> airObjects = new();
-        List<DrawObjectBase> airTaps = new();
+        List<DrawObjectBase> airObjects = [];
+        List<ArcTap> airTaps = [];
 
-        var AddDoubleTip = (float x, float z, bool isEnwiden) =>
+        void AddDoubleTip(float x, float z, bool isEnwiden)
         {
             int sw = isEnwiden ? Config.EnwidenTrackWidth : Config.SingleTrackWidth;
             float sx = x <= Config.DrawingTrackWidth / 2 ? x + sw / 2 + 5 : x - sw / 2 - 20;
@@ -494,7 +531,7 @@ internal class AffRenderer
                 Color = Config.Side == 1 ? ColorDesc.FromArgb(0xddffffff) : ColorDesc.FromArgb(0xff000000),
                 Font = new FontDesc("exo", 10f, FontDescStyle.Bold)
             });
-        };
+        }
 
         foreach (var ev in _affReader.Events)
         {
@@ -503,10 +540,10 @@ internal class AffRenderer
             int duration = t.EndTiming - t.Timing;
             bool isEnwiden = !Interval4K.Any(inv => t.Timing > inv.Item1 && t.Timing < inv.Item2);
 
-            int segSize = duration / (duration < 1000 ? 14 : 7);
+            int segSize = (int)((float)duration / (duration < 1000 ? 14 : 7) / t.SamplingDensity / Config.GlobalArcSamplingDensity);
             int segmentCount = (segSize == 0 ? 0 : duration / segSize) + 1;
 
-            List<Vector3> segments = new();
+            List<Vector3> segments = [];
 
             Vector3 start = new();
             Vector3 end = new((t.XStart + 0.5f) * Config.DrawingTrackWidth / 2 + 3, t.YStart, t.Timing);
@@ -539,7 +576,7 @@ internal class AffRenderer
 
                 airObjects.Add(new ArcSegment()
                 {
-                    IsVoid = t.IsVoid,
+                    ArcType = t.ArcType,
                     ColorId = t.Color,
                     Location = st,
                     End = ed,
@@ -565,6 +602,7 @@ internal class AffRenderer
                     Location = new Vector3(x + 2, y, airTapTiming),
                     Property = (ev as ArcaeaAffArc)?.Fx,
                     IsEnwiden = isInEnwiden,
+                    ArcType = t.ArcType
                 });
 
                 if (isEnwiden)
@@ -831,7 +869,7 @@ internal class AffRenderer
         if (hasCover)
             g.DrawImageScaled(Config.Cover, footerX, footerY, 100, 100);
 
-        Regex enRegex = new(@"^[A-Za-z\d_\s/\(\)\+\=\-\.\[\]:\(\)&']+$");
+        Regex enRegex = regex();
 
         string? title = Title +
             $"   [ {DiffStr} {Rating:F1} ]" +
@@ -860,4 +898,6 @@ internal class AffRenderer
             StringAdapterAlignment.Far);
     }
 
+    [GeneratedRegex(@"^[A-Za-z\d_\s/\(\)\+\=\-\.\[\]:\(\)&']+$")]
+    private static partial Regex regex();
 }

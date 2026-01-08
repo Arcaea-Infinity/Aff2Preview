@@ -1,15 +1,9 @@
 ﻿namespace AffTools.AffAnalyzer;
 
-internal struct NoteRaw
+internal struct NoteRaw(int timePoint, int duration)
 {
-    public int TimePoint = 0;
-    public int Duration = 0;
-
-    public NoteRaw(int timePoint, int duration)
-    {
-        TimePoint = timePoint;
-        Duration = duration;
-    }
+    public int TimePoint = timePoint;
+    public int Duration = duration;
 }
 
 internal class Note
@@ -31,7 +25,7 @@ internal class Note
         }
     }
 
-    private static bool isDoubleEqual(double a, double b, double e) => Math.Abs(a - b) <= e;
+    private static bool IsDoubleEqual(double a, double b, double e) => Math.Abs(a - b) <= e;
 
     public Note(int timeing, int length, double bpm)
     {
@@ -55,7 +49,7 @@ internal class Note
             return true;
         }
 
-        if (isDoubleEqual(length, time_full_note, threshold))
+        if (IsDoubleEqual(length, time_full_note, threshold))
         {
             Divide = 1;
             return true;
@@ -66,13 +60,13 @@ internal class Note
             var t_len = time_full_note / i;
             var t_dot_len = t_len * 1.5;
 
-            if (isDoubleEqual(length, t_len, threshold))
+            if (IsDoubleEqual(length, t_len, threshold))
             {
                 Divide = i;
                 return true;
             }
 
-            if (isDoubleEqual(length, t_dot_len, threshold))
+            if (IsDoubleEqual(length, t_dot_len, threshold))
             {
                 Divide = i;
                 hasDot = true;
