@@ -145,16 +145,38 @@ public class ArcaeaAffReader
             var yEnd = stringParser.ReadFloat(",");
             var color = stringParser.ReadInt(",");
             var fx = stringParser.ReadString(",");
-            var isVoid = stringParser.ReadBool(")");
+            string arcTypeText = stringParser.ReadString([",", ")"], out string arcTypeTerminator);
+            float samplingDensity = 1f;
+            if (arcTypeTerminator == ",")
+            {
+                float parsedDensity = stringParser.ReadFloat(")");
+                if (!float.IsFinite(parsedDensity))
+                    throw new ArcaeaAffFormatException("Arc 采样密度必须为有限数值");
+                samplingDensity = Math.Max(1f, parsedDensity);
+            }
+
+            ArcType arcType = arcTypeText.Trim() switch
+            {
+                "false" => ArcType.Arc,
+                "true" => ArcType.Void,
+                "designant" => ArcType.Designant,
+                _ => throw new ArcaeaAffFormatException($"未知的 Arc 类型：{arcTypeText}")
+            };
+
+            if (color == 3 && num == num2)
+                arcType = ArcType.ScaledArctap;
+
             List<int>? list = null;
             if (stringParser.Current != ";")
             {
                 list = new List<int>();
-                isVoid = true;
                 do
                 {
                     stringParser.Skip(8);
-                    list.Add(stringParser.ReadInt(")"));
+                    int arcTapTiming = stringParser.ReadInt(")");
+                    if (arcTapTiming > num2)
+                        Console.WriteLine($"ArcTap 超出 Arc 范围：{arcTapTiming} > {num2}");
+                    list.Add(arcTapTiming);
                 }
                 while (!(stringParser.Current != ","));
             }
@@ -169,11 +191,12 @@ public class ArcaeaAffReader
                 YEnd = yEnd,
                 Color = color,
                 Fx = fx,
-                IsVoid = isVoid,
+                ArcType = arcType,
                 Type = EventType.Arc,
                 ArcTaps = list,
                 TimingGroup = CurrentTimingGroup,
-                NoInput = noInput
+                NoInput = noInput,
+                SamplingDensity = samplingDensity
             });
             if (num2 < num)
                 throw new ArcaeaAffFormatException("持续时间小于0");

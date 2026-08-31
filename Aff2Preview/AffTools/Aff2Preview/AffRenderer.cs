@@ -27,14 +27,13 @@ public class AffRenderer
 
     private class ArcTap : DrawObjectBase
     {
+        public ArcType ArcType { get; init; }
+
         public override void Draw(GraphicsAdapter g)
         {
-            var airTap = Property switch
-            {
-                "voice_wav" => Config.Side == 1 ? Config.SfxDTap : Config.SfxLTap,
-                "glass_wav" => Config.Side == 1 ? Config.SfxDTap : Config.SfxLTap,
-                _ => Config.AirTap
-            };
+            ImageDesc airTap = ArcType == ArcType.Designant
+                ? Config.HasDesignantAirTap ? Config.DesignantAirTap : Config.AirTap
+                : Property != "none" && Config.HasSoundAirTap ? Config.SoundAirTap : Config.AirTap;
             int drawX = IsEnwiden ? (int)(Location.X * 4 / 6 + Config.EnwidenTrackWidth / 2 + 3) :
                 (int)(Location.X - Config.SingleTrackWidth / 2 + 1);
 
@@ -81,9 +80,11 @@ public class AffRenderer
         public ImageDesc Tap;
         public ImageDesc Hold;
         public ImageDesc AirTap;
+        public ImageDesc SoundAirTap;
+        public ImageDesc DesignantAirTap;
 
-        public readonly ImageDesc SfxDTap;
-        public readonly ImageDesc SfxLTap;
+        public bool HasSoundAirTap { get; set; }
+        public bool HasDesignantAirTap { get; set; }
 
         public ChartConfig(Func<ImageDesc> imageFactory)
         {
@@ -92,14 +93,21 @@ public class AffRenderer
             Tap = imageFactory();
             Hold = imageFactory();
             AirTap = imageFactory();
-            SfxDTap = imageFactory();
-            SfxLTap = imageFactory();
+            SoundAirTap = imageFactory();
+            DesignantAirTap = imageFactory();
         }
 
         public int NoteHeight { get; set; } = 64;
         public int SkyNoteHeight { get; set; } = 61;
         public float ArcWidth { get; set; } = 20f;
         public float ArcVoidWidth { get; set; } = 3f;
+
+        private float _globalArcSamplingDensity = 1f;
+        public float GlobalArcSamplingDensity
+        {
+            get => _globalArcSamplingDensity;
+            set => _globalArcSamplingDensity = float.IsFinite(value) ? Math.Max(1f, value) : 1f;
+        }
 
         public int TotalTrackWidth { get; set; } = 248;
         public int DrawingTrackWidth => TotalTrackWidth - 4;
@@ -114,7 +122,7 @@ public class AffRenderer
         public float SegmentLengthInBaseBpm { get; set; } = 0;
 
         /// <summary>
-        /// 0:hikari 1:conflict 2:finale
+        /// 0:hikari 1:conflict 2:finale 3:colorless
         /// </summary>
         public int Side { get; set; } = 0;
 
@@ -124,6 +132,7 @@ public class AffRenderer
                 0 => 0xffffffff,
                 1 => 0xff382a47,
                 2 => 0xffffffff,
+                3 => 0xffffffff,
                 _ => 0
             };
 
@@ -133,6 +142,7 @@ public class AffRenderer
                 0 => 0xffd3d3d3,
                 1 => 0xff2e1f3c,
                 2 => 0xffd3d3d3,
+                3 => 0xffd3d3d3,
                 _ => 0
             };
 
@@ -142,6 +152,7 @@ public class AffRenderer
                 0 => 0xa0d3d3d3,
                 1 => 0xc02e1f3c,
                 2 => 0xa0d3d3d3,
+                3 => 0xa0d3d3d3,
                 _ => 0
             };
 
@@ -151,6 +162,7 @@ public class AffRenderer
                 0 => 0x0f808080,
                 1 => 0x08f0f8ff,
                 2 => 0x0f808080,
+                3 => 0x0f808080,
                 _ => 0
             };
 
@@ -160,8 +172,11 @@ public class AffRenderer
                 0 => 0xffd3d3d3,
                 1 => 0xffa9a9a9,
                 2 => 0xffd3d3d3,
+                3 => 0xffd3d3d3,
                 _ => 0,
             };
+
+        public uint GetDesignantArcColor() => 0xffa82860;
 
         public uint GetArcColor(int type)
             => Side switch
@@ -190,6 +205,14 @@ public class AffRenderer
                     3 => 0xffffc857,
                     _ => 0,
                 },
+                3 => type switch
+                {
+                    0 => 0xff31dae7,
+                    1 => 0xffff69b4,
+                    2 => 0xff65e572,
+                    3 => 0xffffc857,
+                    _ => 0,
+                },
                 _ => 0xff31dae7,
             };
 
@@ -199,6 +222,7 @@ public class AffRenderer
                 0 => 0xdc90ee90,
                 1 => 0xdcff1493,
                 2 => 0xdc90ee90,
+                3 => 0xdc90ee90,
                 _ => 0,
             };
 
@@ -236,6 +260,11 @@ public class AffRenderer
     public string Charter { get; set; } = "";
     public int Difficulty { get; set; } = 0;
     public bool IsMirror { get; set; } = false;
+    public float GlobalArcSamplingDensity
+    {
+        get => Config.GlobalArcSamplingDensity;
+        set => Config.GlobalArcSamplingDensity = value;
+    }
     private List<(int, int)> Interval4K { get; set; } = new();
     public string DiffStr => Difficulty switch
     {
@@ -243,6 +272,7 @@ public class AffRenderer
         1 => "Present",
         2 => "Future",
         3 => "Beyond",
+        4 => "Eternal",
         _ => ""
     };
 
@@ -255,6 +285,26 @@ public class AffRenderer
         Config.Tap.FromFile(tap);
         Config.Hold.FromFile(hold);
         Config.AirTap.FromFile(airTap);
+    }
+
+    public void LoadResource(
+        string tap,
+        string hold,
+        string airTap,
+        string soundAirTap,
+        string designantAirTap,
+        string bg,
+        string cover)
+    {
+        LoadResource(tap, hold, airTap, bg, cover);
+
+        Config.HasSoundAirTap = !string.IsNullOrWhiteSpace(soundAirTap);
+        if (Config.HasSoundAirTap)
+            Config.SoundAirTap.FromFile(soundAirTap);
+
+        Config.HasDesignantAirTap = !string.IsNullOrWhiteSpace(designantAirTap);
+        if (Config.HasDesignantAirTap)
+            Config.DesignantAirTap.FromFile(designantAirTap);
     }
 
     private void MirrorAff()
@@ -333,6 +383,7 @@ public class AffRenderer
             0 => 0xc8f0f0f0,
             1 => 0xc8202020,
             2 => 0xc8f0f0f0,
+            3 => 0xc8f0f0f0,
             _ => 0xc8f0f0f0,
         });
 
@@ -607,21 +658,24 @@ public class AffRenderer
             int duration = t.EndTiming - t.Timing;
             bool isEnwiden = !IsIn4LaneInterval(t.Timing);
 
-            int segSize = duration / (duration < 1000 ? 14 : 7);
-            int segmentCount = (segSize == 0 ? 0 : duration / segSize) + 1;
+            float samplingDensity = t.SamplingDensity * Config.GlobalArcSamplingDensity;
+            int lineSegmentCount = duration == 0
+                ? 0
+                : (int)Math.Ceiling((duration < 1000 ? 14 : 7) * samplingDensity) + 1;
 
             List<Vector3> segments = new();
 
             Vector3 end = new((t.XStart + 0.5f) * Config.DrawingTrackWidth / 2 + 3, t.YStart, t.Timing);
             segments.Add(end);
 
-            for (int i = 0; i < segmentCount - 1; i++)
+            for (int i = 1; i < lineSegmentCount; i++)
             {
-                float x = ArcAlgorithm.X(t.XStart, t.XEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
-                float y = ArcAlgorithm.Y(t.YStart, t.YEnd, (i + 1f) * segSize / duration, ArcaeaAffArc.ToArcLineType(t.LineType));
+                float progress = (float)i / lineSegmentCount;
+                float x = ArcAlgorithm.X(t.XStart, t.XEnd, progress, ArcaeaAffArc.ToArcLineType(t.LineType));
+                float y = ArcAlgorithm.Y(t.YStart, t.YEnd, progress, ArcaeaAffArc.ToArcLineType(t.LineType));
                 end = new Vector3((x + 0.5f) * Config.DrawingTrackWidth / 2 + 3,
                     y,
-                    t.Timing + segSize * (i + 1));
+                    t.Timing + duration * progress);
                 segments.Add(end);
             }
 
@@ -633,10 +687,13 @@ public class AffRenderer
                 segments.Add(end);
             }
 
-            uint arcColor = t.IsVoid
-                ? Config.GetArcVoidColor()
-                : Config.GetArcColor(t.Color);
-            float arcWidth = t.IsVoid ? Config.ArcVoidWidth : Config.ArcWidth;
+            uint arcColor = t.ArcType switch
+            {
+                ArcType.Arc => Config.GetArcColor(t.Color),
+                ArcType.Designant => Config.GetDesignantArcColor(),
+                _ => Config.GetArcVoidColor()
+            };
+            float arcWidth = t.ArcType == ArcType.Arc ? Config.ArcWidth : Config.ArcVoidWidth;
             var ribbonVertices = BuildArcRibbon(segments, isEnwiden, arcWidth, arcColor);
 
             if (ribbonVertices.Count >= 4)
@@ -669,6 +726,7 @@ public class AffRenderer
                     Config = Config,
                     Location = new Vector3(x + 2, y, airTapTiming),
                     Property = (ev as ArcaeaAffArc)?.Fx,
+                    ArcType = t.ArcType,
                     IsEnwiden = isInEnwiden,
                 });
 
@@ -930,6 +988,7 @@ public class AffRenderer
             0 => 0xc8f0f0f0,
             1 => 0xc8202020,
             2 => 0xc8f0f0f0,
+            3 => 0xc8f0f0f0,
             _ => 0,
         });
 

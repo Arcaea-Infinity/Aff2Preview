@@ -14,6 +14,14 @@ namespace AffTools.AffReader
         SoSo
     }
 
+    public enum ArcType
+    {
+        Arc,
+        Void,
+        Designant,
+        ScaledArctap
+    }
+
     namespace Advanced
     {
         public enum SpecialType
@@ -86,7 +94,9 @@ namespace AffTools.AffReader
 
         public string Fx = null!;
 
-        public bool IsVoid;
+        public ArcType ArcType;
+
+        public float SamplingDensity = 1f;
 
         public List<int>? ArcTaps;
 

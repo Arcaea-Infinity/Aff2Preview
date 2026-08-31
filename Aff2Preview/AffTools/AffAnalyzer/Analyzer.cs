@@ -21,7 +21,7 @@ internal class Analyzer
     public float baseBpl;
     public float baseTimePerSegment;
     public int segmentCountInBaseBpm;
-    
+
     public readonly Dictionary<int, int> timingCombos = new();
     public readonly Dictionary<int, int> timingTaps = new();
 
@@ -172,7 +172,7 @@ internal class Analyzer
                     break;
                 case ArcaeaAffArc evArc:
                 {
-                    if (!evArc.IsVoid)
+                    if (evArc.ArcType == ArcType.Arc)
                     {
                         var key = (evArc.TimingGroup, evArc.Color);
                         if (!arcColors.TryGetValue(key, out var arcs))
@@ -183,7 +183,9 @@ internal class Analyzer
                         arcs.Add(evArc);
                     }
 
-                    if (evArc.ArcTaps is not null)
+                    if (evArc.ArcType != ArcType.Designant &&
+                        evArc.ArcType != ArcType.ScaledArctap &&
+                        evArc.ArcTaps is not null)
                     {
                         foreach (var at in evArc.ArcTaps)
                         {
@@ -305,7 +307,7 @@ internal class Analyzer
 
         List<ArcaeaAffArc> arcs = _affReader.Events
             .OfType<ArcaeaAffArc>()
-            .Where(arc => !arc.IsVoid && !IsGroupNoInput(arc.TimingGroup))
+            .Where(arc => arc.ArcType == ArcType.Arc && !IsGroupNoInput(arc.TimingGroup))
             .ToList();
 
         foreach (var arc in arcs)
@@ -368,16 +370,18 @@ internal class Analyzer
                 }
                 case ArcaeaAffArc evArc:
                 {
-                    ArcTap += evArc.ArcTaps?.Count ?? 0;
+                    bool countArcTaps = evArc.ArcType != ArcType.Designant &&
+                                        evArc.ArcType != ArcType.ScaledArctap;
+                    ArcTap += countArcTaps ? evArc.ArcTaps?.Count ?? 0 : 0;
 
-                    for (var x = 0; x < evArc.ArcTaps?.Count; x++)
+                    for (var x = 0; countArcTaps && x < evArc.ArcTaps?.Count; x++)
                     {
                         timingNotePoints.Add(evArc.ArcTaps[x]);
                         Total++;
                         tapTimings.Add(evArc.ArcTaps[x]);
                     }
 
-                    if (evArc.IsVoid)
+                    if (evArc.ArcType != ArcType.Arc)
                         continue;
 
                     var timing = GetCurrentTiming(evArc.Timing, evArc.TimingGroup);
@@ -501,7 +505,9 @@ internal class Analyzer
                     break;
                 case ArcaeaAffArc evArc:
                 {
-                    if (evArc.ArcTaps is not null)
+                    if (evArc.ArcType != ArcType.Designant &&
+                        evArc.ArcType != ArcType.ScaledArctap &&
+                        evArc.ArcTaps is not null)
                     {
                         timingList.AddRange(evArc.ArcTaps.Select(v => (v, ev)));
                     }

@@ -53,6 +53,29 @@ public class AffStringParser
         return value;
     }
 
+    public string ReadString(IReadOnlyList<string> terminators, out string actualTerminator)
+    {
+        int end = str.Length;
+        actualTerminator = "";
+
+        foreach (string terminator in terminators)
+        {
+            int terminatorPosition = str.IndexOf(terminator, pos, StringComparison.Ordinal);
+            if (terminatorPosition >= 0 && terminatorPosition < end)
+            {
+                end = terminatorPosition;
+                actualTerminator = terminator;
+            }
+        }
+
+        if (actualTerminator.Length == 0)
+            throw new FormatException("找不到字段结束符");
+
+        string value = str.Substring(pos, end - pos);
+        pos = end + actualTerminator.Length;
+        return value;
+    }
+
     public string Current
     {
         get

@@ -1,7 +1,7 @@
 # AffTools
 
 [![Version](https://img.shields.io/badge/AffTools-2.1-coral)](#)
-[![C#](https://img.shields.io/badge/.NET-6.0-blue)](#)
+[![C#](https://img.shields.io/badge/.NET-8.0-blue)](#)
 [![License](https://img.shields.io/static/v1?label=LICENSE&message=616%20SB&color=1f1e33)](/LICENSE)
 
 A toolset for Arcaea aff files.
@@ -32,6 +32,7 @@ AffRenderer affRenderer = new("assets/2.aff")
     Notes = 0, // notes are counted by internal note counter now
     ChartBpm = 200, // also used as the preview layout BPM; 0 uses the AFF base timing
     IsMirror = false, // controls whether the chart is mirrored or not
+    GlobalArcSamplingDensity = 1f, // values above 1 make curved arcs smoother
 };
 
 // image resource to generate chart preview.
@@ -40,6 +41,8 @@ affRenderer.LoadResource(
     "assets/note.png",
     "assets/note_hold.png",
     "assets/arc_body.png",
+    "", // sound arctap; empty string falls back to arc_body.png
+    "", // designant arctap; empty string falls back to arc_body.png
     "assets/base.jpg",  // empty string if unwanted
     "assets/base.jpg"); // empty string if unwanted
 
@@ -48,6 +51,17 @@ var image = affRenderer.Draw();
 image?.SaveToPng("output.png");
 
 ```
+
+Arcaea 6.8 Designant arcs are supported. The parser accepts both the traditional
+boolean form and the extended form with an optional per-arc sampling density:
+
+```aff
+arc(0,1000,0.00,1.00,b,0.00,1.00,0,none,true);
+arc(0,1000,0.00,1.00,b,0.00,1.00,0,none,designant,2.0)[arctap(500)];
+```
+
+Designant arcs and their arctaps are visual guides and are excluded from note
+analysis and note counts. Difficulty value `4` is displayed as `Eternal`.
 
 Example output: `assets/2.aff`
 
