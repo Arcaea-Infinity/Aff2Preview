@@ -97,6 +97,18 @@ public enum Alignment
     Far,
 }
 
+public readonly struct VertexDesc
+{
+    public System.Numerics.Vector2 Position { get; }
+    public uint ColorArgb { get; }
+
+    public VertexDesc(System.Numerics.Vector2 position, uint colorArgb)
+    {
+        Position = position;
+        ColorArgb = colorArgb;
+    }
+}
+
 public abstract class GraphicsAdapter
 {
     public abstract void BeginContext(int width, int height);
@@ -112,6 +124,8 @@ public abstract class GraphicsAdapter
     public abstract void FillRectangle(ColorDesc color, float x, float y, float w, float h);
     public abstract void DrawLine(ColorDesc color, float width, float startx, float starty, float endx, float endy);
     public abstract void DrawLine(float width, float startx, float starty, float endx, float endy);
+    public virtual void DrawTriangleStrip(IReadOnlyList<VertexDesc> vertices)
+        => throw new NotSupportedException("This graphics adapter does not support triangle strips.");
     public abstract void DrawString(string str, ColorDesc color, FontDesc font, float x, float y);
     public abstract void DrawString(string str, float x, float y);
     public abstract void DrawStringLayout(string str, float x, float y, float w, float h, StringAdapterAlignment align);

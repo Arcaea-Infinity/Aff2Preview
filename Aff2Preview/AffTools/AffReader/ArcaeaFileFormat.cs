@@ -26,9 +26,9 @@ namespace AffTools.AffReader
         public class ArcadeAffSpecial : ArcaeaAffEvent
         {
             public SpecialType SpecialType;
-            public string param1;
-            public string param2;
-            public string param3;
+            public string param1 = "";
+            public string param2 = "";
+            public string param3 = "";
         }
     }
 
@@ -64,6 +64,8 @@ namespace AffTools.AffReader
         public EventType Type;
 
         public int TimingGroup;
+
+        //public NoteSide NoteSide = NoteSide.None;
     }
 
     public class ArcaeaAffArc : ArcaeaAffEvent

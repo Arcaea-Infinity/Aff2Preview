@@ -1,4 +1,7 @@
-﻿using AffTools.AffReader;
+﻿using System.Numerics;
+
+using AffTools.AffReader;
+using AffTools.MyGraphics;
 
 namespace AffTools.AffAnalyzer;
 
@@ -6,7 +9,7 @@ internal class Analyzer
 {
     private List<NoteRaw> _noteRaws = new();
 
-    public List<Note> Notes { get; private set; } = new();
+    public List<TimingNote> Notes { get; private set; } = new();
 
     private readonly ArcaeaAffReader _affReader;
 
@@ -28,18 +31,26 @@ internal class Analyzer
     public int ArcTap = 0;
     public int Total = 0;
     public int TapTotal => Tap + ArcTap;
+    public int ArcTotal => Arc.Sum();
 
-    public Analyzer(ArcaeaAffReader affReader)
+    public Analyzer(ArcaeaAffReader affReader, float? baseBpmOverride = null)
     {
         _affReader = affReader;
 
-        var globalTimingGroup = affReader.Events[0] as ArcaeaAffTiming;
-        if (globalTimingGroup is not null)
-        {
-            baseBpm = globalTimingGroup.Bpm;
-            baseBpl = globalTimingGroup.BeatsPerLine;
-            baseTimePerSegment = 60 * 1000 * (int)baseBpl / baseBpm;
-        }
+        var globalTimingGroup = affReader.Events
+            .OfType<ArcaeaAffTiming>()
+            .FirstOrDefault(timing => timing.TimingGroup == 0);
+        if (globalTimingGroup is null)
+            throw new InvalidOperationException("谱面缺少主 TimingGroup 的 timing 事件");
+
+        baseBpm = baseBpmOverride is > 0
+            ? baseBpmOverride.Value
+            : Math.Abs(globalTimingGroup.Bpm);
+        baseBpl = globalTimingGroup.BeatsPerLine;
+        if (baseBpm <= 0 || baseBpl <= 0)
+            throw new InvalidOperationException("谱面的基准 BPM 和 BeatsPerLine 必须大于 0");
+
+        baseTimePerSegment = 60 * 1000 * baseBpl / baseBpm;
 
         foreach (var ev in affReader.Events)
         {
@@ -144,11 +155,7 @@ internal class Analyzer
     {
         _noteRaws.Clear();
 
-        Dictionary<int, List<ArcaeaAffArc>> arcColors = new();
-        arcColors.Add(0, new());
-        arcColors.Add(1, new());
-        arcColors.Add(2, new());
-        arcColors.Add(3, new());
+        Dictionary<(int TimingGroup, int Color), List<ArcaeaAffArc>> arcColors = new();
 
         foreach (var ev in _affReader.Events)
         {
@@ -158,21 +165,29 @@ internal class Analyzer
             switch (ev)
             {
                 case ArcaeaAffTap evTap:
-                    _noteRaws.Add(new(ev.Timing, 0));
+                    _noteRaws.Add(new(ev.Timing, 0, ev.TimingGroup));
                     break;
                 case ArcaeaAffHold evHold:
-                    _noteRaws.Add(new(ev.Timing, evHold.EndTiming - evHold.Timing));
+                    _noteRaws.Add(new(ev.Timing, evHold.EndTiming - evHold.Timing, ev.TimingGroup));
                     break;
                 case ArcaeaAffArc evArc:
                 {
                     if (!evArc.IsVoid)
-                        arcColors[evArc.Color].Add(evArc);
+                    {
+                        var key = (evArc.TimingGroup, evArc.Color);
+                        if (!arcColors.TryGetValue(key, out var arcs))
+                        {
+                            arcs = new List<ArcaeaAffArc>();
+                            arcColors.Add(key, arcs);
+                        }
+                        arcs.Add(evArc);
+                    }
 
                     if (evArc.ArcTaps is not null)
                     {
                         foreach (var at in evArc.ArcTaps)
                         {
-                            _noteRaws.Add(new(at, 0));
+                            _noteRaws.Add(new(at, 0, ev.TimingGroup));
                         }
                     }
 
@@ -189,11 +204,11 @@ internal class Analyzer
                 var prev = arcList[i - 1];
                 if (arc.Timing != prev.EndTiming)
                 {
-                    _noteRaws.Add(new(arc.Timing, 0));
+                    _noteRaws.Add(new(arc.Timing, 0, arc.TimingGroup));
                 }
             }
             if (arcList.Any())
-                _noteRaws.Add(new(arcList[0].Timing, 0));
+                _noteRaws.Add(new(arcList[0].Timing, 0, arcList[0].TimingGroup));
         }
 
         _noteRaws = _noteRaws.OrderBy(x => x.TimePoint).ToList();
@@ -205,8 +220,10 @@ internal class Analyzer
             if (dt <= 3)
                 continue;
 
-            var currBpm = GetCurrentTiming(_noteRaws[i].TimePoint, 0).Bpm;
-            Note n = new();
+            var currBpm = Math.Abs(GetCurrentTiming(
+                _noteRaws[i].TimePoint,
+                _noteRaws[i].TimingGroup).Bpm);
+            TimingNote n = new();
             if (!n.Analyze(_noteRaws[i].TimePoint, dt, currBpm))
                 n.Analyze(_noteRaws[i].TimePoint, dt, baseBpm);
             Notes.Add(n);
@@ -217,8 +234,8 @@ internal class Analyzer
     private ArcaeaAffTiming GetCurrentTiming(int timing, int timingGroup)
     {
         var timings = _affReader.Events
-          .Where(ev => ev is ArcaeaAffTiming && ev.TimingGroup == timingGroup)
-          .Select(x => x as ArcaeaAffTiming);
+          .OfType<ArcaeaAffTiming>()
+          .Where(ev => ev.TimingGroup == timingGroup);
 
         return timings.Last(x => x.Timing <= timing);
     }
@@ -275,11 +292,24 @@ internal class Analyzer
         }
     }
 
-    public void CalcNotes()
+    public void CountNotes()
     {
-        List<ArcaeaAffArc> arcs =
-            _affReader.Events.Where(x => x is ArcaeaAffArc a && !a.IsVoid && !IsGroupNoInput(x.TimingGroup))
-            .Select(x => x as ArcaeaAffArc).ToList();
+        Tap = 0;
+        Hold = 0;
+        ArcTap = 0;
+        Total = 0;
+        timingCombos.Clear();
+        timingTaps.Clear();
+        for (var color = 0; color < Arc.Count; color++)
+            Arc[color] = 0;
+
+        List<ArcaeaAffArc> arcs = _affReader.Events
+            .OfType<ArcaeaAffArc>()
+            .Where(arc => !arc.IsVoid && !IsGroupNoInput(arc.TimingGroup))
+            .ToList();
+
+        foreach (var arc in arcs)
+            arc.HasHead = true;
 
         arcs.Sort((a, b) => a.Timing.CompareTo(b.Timing));
         ArcaeaAffArc[] scra = arcs.ToArray();
@@ -390,14 +420,17 @@ internal class Analyzer
             }
         }
 
-        Console.WriteLine($"F{Tap} L{Hold} A{Arc[0] + Arc[1]} (blue{Arc[0]} red{Arc[1]}) S{ArcTap} t:{Tap + Hold + Arc[0] + Arc[1] + ArcTap}");
+        Console.WriteLine($"F{Tap} L{Hold} A{ArcTotal} (blue{Arc[0]} red{Arc[1]} green{Arc[2]}) S{ArcTap} t:{Total}");
     }
 
     public void AnalyzeSegments()
     {
+        SegmentTimings.Clear();
+
         List<ArcaeaAffTiming> Timings = _affReader.Events
-          .Where(ev => ev is ArcaeaAffTiming && ev.TimingGroup == 0)
-          .Select(x => x as ArcaeaAffTiming).ToList();
+          .OfType<ArcaeaAffTiming>()
+          .Where(ev => ev.TimingGroup == 0)
+          .ToList();
 
         for (int i = 0; i < Timings.Count - 1; ++i)
         {
@@ -447,6 +480,7 @@ internal class Analyzer
             }
         }
     }
+
 
     public Dictionary<int, int> GetChartQuality(int threshold)
     {

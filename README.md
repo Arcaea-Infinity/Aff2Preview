@@ -13,7 +13,8 @@ A toolset for Arcaea aff files.
 
 Generate 2D chart preview image by aff file.
 
-Use `System.Drawing.Common` to generate image. However, you can override `AffTools.MyGraphics.GraphicsAdapter` to use your own image library.
+Use `System.Drawing.Common` to generate images by default. To use another image library,
+pass `graphicsAdapterFactory` and `imageFactory` to the `AffRenderer` constructor.
 
 Usage:
 
@@ -29,7 +30,7 @@ AffRenderer affRenderer = new("assets/2.aff")
     Difficulty = 2,
     Rating = 10.3f,
     Notes = 0, // notes are counted by internal note counter now
-    ChartBpm = 200,
+    ChartBpm = 200, // also used as the preview layout BPM; 0 uses the AFF base timing
     IsMirror = false, // controls whether the chart is mirrored or not
 };
 

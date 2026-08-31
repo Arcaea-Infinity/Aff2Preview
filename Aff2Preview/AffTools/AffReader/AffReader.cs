@@ -177,6 +177,8 @@ public class ArcaeaAffReader
             });
             if (num2 < num)
                 throw new ArcaeaAffFormatException("持续时间小于0");
+            if (color is < 0 or > 3)
+                throw new ArcaeaAffFormatException("Arc颜色编号错误");
         }
         catch (ArcaeaAffFormatException)
         {
@@ -250,7 +252,10 @@ public class ArcaeaAffReader
                         text2 = "";
                     }
                     if (!num && !flag && !flag2)
-                        list.Add(float.Parse(text3));
+                        list.Add(float.Parse(
+                            text3,
+                            System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture));
                 }
                 Events.Add(new ArcaeaAffSceneControl
                 {
@@ -294,7 +299,9 @@ public class ArcaeaAffReader
         {
             var stringParser = new AffStringParser(line);
             stringParser.Skip(12);
-            return stringParser.ReadString(")") == "noinput";
+            return stringParser.ReadString(")")
+                .Split('_', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("noinput", StringComparer.Ordinal);
         }
         catch (ArcaeaAffFormatException)
         {
@@ -308,14 +315,21 @@ public class ArcaeaAffReader
 
     public void Parse(string path)
     {
+        Events.Clear();
+        TimingGroupProperties.Clear();
         TotalTimingGroup = 1;
         CurrentTimingGroup = 0;
+        AudioOffset = 0;
+        TimingPointDensityFactor = 1;
         TimingGroupProperties.Add(new TimingGroupProperties());
         var noInput = false;
         var array = File.ReadAllLines(path);
         try
         {
-            AudioOffset = int.Parse(array[0].Replace("AudioOffset:", ""));
+            AudioOffset = int.Parse(
+                array[0].Replace("AudioOffset:", ""),
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {
@@ -326,7 +340,10 @@ public class ArcaeaAffReader
         {
             try
             {
-                TimingPointDensityFactor = float.Parse(array[1].Replace("TimingPointDensityFactor:", ""));
+                TimingPointDensityFactor = float.Parse(
+                    array[1].Replace("TimingPointDensityFactor:", ""),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (Exception)
             {

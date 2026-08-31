@@ -1,18 +1,20 @@
 ﻿namespace AffTools.AffAnalyzer;
 
-internal struct NoteRaw
+public struct NoteRaw
 {
     public int TimePoint = 0;
     public int Duration = 0;
+    public int TimingGroup = 0;
 
-    public NoteRaw(int timePoint, int duration)
+    public NoteRaw(int timePoint, int duration, int timingGroup = 0)
     {
         TimePoint = timePoint;
         Duration = duration;
+        TimingGroup = timingGroup;
     }
 }
 
-internal class Note
+public class TimingNote
 {
     public int TimePoint { get; set; } = 0;
     public int Duration { get; set; } = 0;
@@ -33,12 +35,12 @@ internal class Note
 
     private static bool isDoubleEqual(double a, double b, double e) => Math.Abs(a - b) <= e;
 
-    public Note(int timeing, int length, double bpm)
+    public TimingNote(int timeing, int length, double bpm)
     {
         Analyze(timeing, length, bpm);
     }
 
-    public Note()
+    public TimingNote()
     {
     }
 

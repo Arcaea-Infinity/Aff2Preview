@@ -18,7 +18,10 @@ public class AffStringParser
     public float ReadFloat(string? terminator = null)
     {
         int end = terminator != null ? str.IndexOf(terminator, pos) : str.Length - 1;
-        float value = float.Parse(str.Substring(pos, end - pos));
+        float value = float.Parse(
+            str.Substring(pos, end - pos),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture);
         pos += end - pos + 1;
         return value;
     }
@@ -26,7 +29,10 @@ public class AffStringParser
     public int ReadInt(string? terminator = null)
     {
         int end = terminator != null ? str.IndexOf(terminator, pos) : str.Length - 1;
-        int value = int.Parse(str.Substring(pos, end - pos));
+        int value = int.Parse(
+            str.Substring(pos, end - pos),
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture);
         pos += end - pos + 1;
         return value;
     }
