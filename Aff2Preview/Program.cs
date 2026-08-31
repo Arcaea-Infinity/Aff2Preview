@@ -1,15 +1,20 @@
 ﻿using AffTools.Aff2Preview;
+using AffTools.AffAnalyzer;
 
-AffRenderer affRenderer = new("assets/2.aff")
+//Analyzer.OutputAllChartDoubleTapAnalyze(@"E:\gitlab\aimubot\bot_shared_data\Arcaea\assets\songs\");
+//return;
+
+//AffRenderer affRenderer = new(@"E:\gitlab\aimubot\bot_shared_data\Arcaea\assets\songs\dl_testify\3.aff")
+AffRenderer affRenderer = new(@"E:\github\Aff2Preview\1.aff")
 {
-    Title = "Gift",
-    Artist = "Notorious(Nota & TRIAL)",
-    Charter = "Misaka12456",
-    Side = 0,
-    Difficulty = 2,
-    Rating = 10.3f,
+    Title = "dl_testify",
+    Artist = "",
+    Charter = "",
+    Side = 2,
+    Difficulty = 3,
+    Rating = 11f,
     Notes = 0,
-    ChartBpm = 200,
+    ChartBpm = 222,
     IsMirror = false
 };
 
@@ -17,8 +22,8 @@ affRenderer.LoadResource(
     "assets/note.png",
     "assets/note_hold.png",
     "assets/arc_body.png",
-    "assets/base.jpg",
-    "assets/base.jpg");
+    @"E:\gitlab\aimubot\bot_shared_data\Arcaea\assets\img\bg\testify.jpg",
+    @"E:\gitlab\aimubot\bot_shared_data\Arcaea\assets\songs\dl_testify\base.jpg");
 
 var image = affRenderer.Draw();
 

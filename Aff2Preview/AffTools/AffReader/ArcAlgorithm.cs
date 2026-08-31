@@ -82,7 +82,7 @@ public static class ArcAlgorithm
     }
     public static float Qo(float value)
     {
-        return (--value) * value * value + 1;
+        return (value = value - 1) * value * value + 1;
     }
 }
 

@@ -1,7 +1,7 @@
 # AffTools
 
 [![Version](https://img.shields.io/badge/AffTools-2.1-coral)](#)
-[![C#](https://img.shields.io/badge/.NET-10.0-blue)](#)
+[![C#](https://img.shields.io/badge/.NET-8.0-blue)](#)
 [![License](https://img.shields.io/static/v1?label=LICENSE&message=616%20SB&color=1f1e33)](/LICENSE)
 
 A toolset for Arcaea aff files.
@@ -13,14 +13,14 @@ A toolset for Arcaea aff files.
 
 Generate 2D chart preview image by aff file.
 
-Use `System.Drawing.Common` to generate image. However, you can override `AffTools.MyGraphics.GraphicsAdapter` to use your own image library.
+Use `System.Drawing.Common` to generate images by default. To use another image library,
+pass `graphicsAdapterFactory` and `imageFactory` to the `AffRenderer` constructor.
 
 Usage:
 
 ```csharp
 using AffTools.Aff2Preview;
 
-AffRenderer.Config.GlobalArcSamplingDensity = 2.0f; // default is 1.0f
 AffRenderer affRenderer = new("assets/2.aff")
 {
     Title = "Gift",
@@ -30,8 +30,9 @@ AffRenderer affRenderer = new("assets/2.aff")
     Difficulty = 2,
     Rating = 10.3f,
     Notes = 0, // notes are counted by internal note counter now
-    ChartBpm = 200,
+    ChartBpm = 200, // also used as the preview layout BPM; 0 uses the AFF base timing
     IsMirror = false, // controls whether the chart is mirrored or not
+    GlobalArcSamplingDensity = 1f, // values above 1 make curved arcs smoother
 };
 
 // image resource to generate chart preview.
@@ -39,9 +40,9 @@ AffRenderer affRenderer = new("assets/2.aff")
 affRenderer.LoadResource(
     "assets/note.png",
     "assets/note_hold.png",
-    "assets/arctap.png",
-    "assets/sfx_arctap.png" // empty string if unwanted
-    "assets/designant_arctap.png" // empty string if unwanted
+    "assets/arc_body.png",
+    "", // sound arctap; empty string falls back to arc_body.png
+    "", // designant arctap; empty string falls back to arc_body.png
     "assets/base.jpg",  // empty string if unwanted
     "assets/base.jpg"); // empty string if unwanted
 
@@ -50,6 +51,17 @@ var image = affRenderer.Draw();
 image?.SaveToPng("output.png");
 
 ```
+
+Arcaea 6.8 Designant arcs are supported. The parser accepts both the traditional
+boolean form and the extended form with an optional per-arc sampling density:
+
+```aff
+arc(0,1000,0.00,1.00,b,0.00,1.00,0,none,true);
+arc(0,1000,0.00,1.00,b,0.00,1.00,0,none,designant,2.0)[arctap(500)];
+```
+
+Designant arcs and their arctaps are visual guides and are excluded from note
+analysis and note counts. Difficulty value `4` is displayed as `Eternal`.
 
 Example output: `assets/2.aff`
 

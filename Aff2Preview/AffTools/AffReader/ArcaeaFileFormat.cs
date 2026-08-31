@@ -14,6 +14,14 @@ namespace AffTools.AffReader
         SoSo
     }
 
+    public enum ArcType
+    {
+        Arc,
+        Void,
+        Designant,
+        ScaledArctap
+    }
+
     namespace Advanced
     {
         public enum SpecialType
@@ -26,9 +34,9 @@ namespace AffTools.AffReader
         public class ArcadeAffSpecial : ArcaeaAffEvent
         {
             public SpecialType SpecialType;
-            public string Param1;
-            public string Param2;
-            public string Param3;
+            public string param1 = "";
+            public string param2 = "";
+            public string param3 = "";
         }
     }
 
@@ -64,14 +72,8 @@ namespace AffTools.AffReader
         public EventType Type;
 
         public int TimingGroup;
-    }
 
-    public enum ArcType
-    {
-        Arc,
-        Void,
-        Designant,
-        ScaledArctap // not implemented yet
+        //public NoteSide NoteSide = NoteSide.None;
     }
 
     public class ArcaeaAffArc : ArcaeaAffEvent
@@ -90,15 +92,15 @@ namespace AffTools.AffReader
 
         public int Color;
 
-        public string Fx = "none";
+        public string Fx = null!;
 
         public ArcType ArcType;
+
+        public float SamplingDensity = 1f;
 
         public List<int>? ArcTaps;
 
         public bool NoInput;
-
-        public float SamplingDensity = 1.0f;
 
         public bool HasHead = true;
 

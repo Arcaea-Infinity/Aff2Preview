@@ -17,7 +17,7 @@ public class ArcaeaAffReader
 
     private static EventType DetermineType(string line)
     {
-        if (line.StartsWith('('))
+        if (line.StartsWith("("))
             return EventType.Tap;
         if (line.StartsWith("timing("))
             return EventType.Timing;
@@ -145,43 +145,40 @@ public class ArcaeaAffReader
             var yEnd = stringParser.ReadFloat(",");
             var color = stringParser.ReadInt(",");
             var fx = stringParser.ReadString(",");
-            // var isVoid = stringParser.ReadBool(")"); // we're updating to ver 6.8.0 or later
-            string arcTypeString = stringParser.ReadString([",", ")"], out string arcTypeTerminator);
-            float sampleDensity = 1.0f;
+            string arcTypeText = stringParser.ReadString([",", ")"], out string arcTypeTerminator);
+            float samplingDensity = 1f;
             if (arcTypeTerminator == ",")
             {
-                sampleDensity = Math.Max(stringParser.ReadFloat(")"), 1.0f);
+                float parsedDensity = stringParser.ReadFloat(")");
+                if (!float.IsFinite(parsedDensity))
+                    throw new ArcaeaAffFormatException("Arc 采样密度必须为有限数值");
+                samplingDensity = Math.Max(1f, parsedDensity);
             }
 
-            List<int>? list = null;
-            if (stringParser.Current != ";")
-            {
-                list = [];
-                //isVoid = true;
-                // Designant arc has made an exception so we could not set the arc type to void.
-                do
-                {
-                    stringParser.Skip(8);
-                    int arctapTiming = stringParser.ReadInt(")");
-                    if (arctapTiming > num2)
-                    {
-                        Console.WriteLine($"ArcTap out of trace. The timing of ArcTap is {arctapTiming}, but the trace ends at {num2}.");
-                    }
-                    list.Add(arctapTiming);
-                }
-                while (!(stringParser.Current != ","));
-            }
-
-            ArcType type = arcTypeString switch
+            ArcType arcType = arcTypeText.Trim() switch
             {
                 "false" => ArcType.Arc,
                 "true" => ArcType.Void,
                 "designant" => ArcType.Designant,
-                _ => ArcType.Arc,
+                _ => throw new ArcaeaAffFormatException($"未知的 Arc 类型：{arcTypeText}")
             };
+
             if (color == 3 && num == num2)
+                arcType = ArcType.ScaledArctap;
+
+            List<int>? list = null;
+            if (stringParser.Current != ";")
             {
-                type = ArcType.ScaledArctap;
+                list = new List<int>();
+                do
+                {
+                    stringParser.Skip(8);
+                    int arcTapTiming = stringParser.ReadInt(")");
+                    if (arcTapTiming > num2)
+                        Console.WriteLine($"ArcTap 超出 Arc 范围：{arcTapTiming} > {num2}");
+                    list.Add(arcTapTiming);
+                }
+                while (!(stringParser.Current != ","));
             }
             if (!noInput) Events.Add(new ArcaeaAffArc
             {
@@ -194,15 +191,17 @@ public class ArcaeaAffReader
                 YEnd = yEnd,
                 Color = color,
                 Fx = fx,
-                ArcType = type,
+                ArcType = arcType,
                 Type = EventType.Arc,
                 ArcTaps = list,
                 TimingGroup = CurrentTimingGroup,
                 NoInput = noInput,
-                SamplingDensity = sampleDensity
+                SamplingDensity = samplingDensity
             });
             if (num2 < num)
                 throw new ArcaeaAffFormatException("持续时间小于0");
+            if (color is < 0 or > 3)
+                throw new ArcaeaAffFormatException("Arc颜色编号错误");
         }
         catch (ArcaeaAffFormatException)
         {
@@ -258,7 +257,7 @@ public class ArcaeaAffReader
                 var timing = stringParser.ReadInt(",");
                 var sceneControlTypeName = stringParser.ReadString(",").Trim();
                 var text = stringParser.ReadString();
-                text = text[..text.LastIndexOf(')')];
+                text = text.Substring(0, text.LastIndexOf(')'));
                 var array = text.Split(',');
                 var list = new List<object>();
                 var text2 = "";
@@ -276,7 +275,10 @@ public class ArcaeaAffReader
                         text2 = "";
                     }
                     if (!num && !flag && !flag2)
-                        list.Add(float.Parse(text3));
+                        list.Add(float.Parse(
+                            text3,
+                            System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture));
                 }
                 Events.Add(new ArcaeaAffSceneControl
                 {
@@ -320,7 +322,9 @@ public class ArcaeaAffReader
         {
             var stringParser = new AffStringParser(line);
             stringParser.Skip(12);
-            return stringParser.ReadString(")") == "noinput";
+            return stringParser.ReadString(")")
+                .Split('_', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("noinput", StringComparer.Ordinal);
         }
         catch (ArcaeaAffFormatException)
         {
@@ -334,14 +338,21 @@ public class ArcaeaAffReader
 
     public void Parse(string path)
     {
+        Events.Clear();
+        TimingGroupProperties.Clear();
         TotalTimingGroup = 1;
         CurrentTimingGroup = 0;
+        AudioOffset = 0;
+        TimingPointDensityFactor = 1;
         TimingGroupProperties.Add(new TimingGroupProperties());
         var noInput = false;
         var array = File.ReadAllLines(path);
         try
         {
-            AudioOffset = int.Parse(array[0].Replace("AudioOffset:", ""));
+            AudioOffset = int.Parse(
+                array[0].Replace("AudioOffset:", ""),
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {
@@ -352,7 +363,10 @@ public class ArcaeaAffReader
         {
             try
             {
-                TimingPointDensityFactor = float.Parse(array[1].Replace("TimingPointDensityFactor:", ""));
+                TimingPointDensityFactor = float.Parse(
+                    array[1].Replace("TimingPointDensityFactor:", ""),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (Exception)
             {
